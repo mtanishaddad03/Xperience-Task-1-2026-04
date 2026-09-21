@@ -308,7 +308,7 @@ State names used below: **Event** Open · Closed · Cancelled. **Reply** *(none 
 | **U6** Close or cancel | Host chooses | Resolve; state guard; set status; **on cancel, record a cancellation notice for every guest whose invitation was sent** | Open → Closed / Cancelled; Closed → Cancelled | D7, D10, D11 |
 | **U7** Check own standing | Guest opens link | Resolve; show event and own state | None | Q6 |
 | **U9** Recover management link | Host requests a new one | Queue a new management-link message to the verified address | Old link replaced when the new one is sent | D9, **Q9** |
-| **U10** Resend invitation | Host resends a failed or unsent invitation | Queue a new invitation message | None until sent | D8 |
+| **U10** Resend invitation | Host resends an invitation whose latest message is **sent or failed** — sent covers a guest who lost the email. Refused while the latest is queued or sending. | Queue a new invitation message (counts toward D14) | None until sent; **when the new message is sent, the guest's previous link stops working** (KD13) | D8, D14 |
 
 ### Internal system flows
 
