@@ -664,6 +664,10 @@ There is no queue for ordering state changes. The ordering a queue would provide
 
 **Why the invite unit takes no lock:** an invite racing a cancel can queue messages for an event cancelled a moment earlier. No invariant is broken — and under INV-B11 those messages are skipped at send time.
 
+**The lock as PostgreSQL takes it** *(Stage 1)*: the per-event lock is a `PESSIMISTIC_WRITE` read of the event row, which Hibernate issues on PostgreSQL as `SELECT … FOR NO KEY UPDATE`, not `FOR UPDATE`. This is sufficient and preferable:
+- **It still serialises the event.** `FOR NO KEY UPDATE` conflicts with itself, so any two reply or status units on one event run one after the other. The Stage 1 tests for X1, X2 and X4 prove this; removing the lock makes them fail.
+- **It does not block invitations.** Inserting a guest or a message that references the event takes only `FOR KEY SHARE` on the event row, which `FOR NO KEY UPDATE` permits (plain `FOR UPDATE` would block it). The invite unit therefore never waits on a reply burst, as the design intends.
+
 **Why the link is stored before handoff:** if the handoff fails, the message is marked **failed** and visible to the host, who can resend. Storing it after handoff would risk a guest receiving a link that was never stored — a failure only the guest would ever see.
 
 ### Vulnerable areas and controls
