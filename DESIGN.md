@@ -483,7 +483,7 @@ The two paths share only the Access Gate, the outbox, and the per-event lock. A 
 | **KD10** | One outbound path: the outbox. Management links, invitations, promotion notices and cancellation notices all go through it. | D3, D8, D9 |
 | **KD11** | Nothing added for scale — no caching, no replicas. | P1 |
 | **KD12** | Each count has one definition, used by both the capacity decision and the host view. | INV-D4 |
-| **KD13** | **A link is generated at the moment its message is sent; only its protected form is stored.** Notices carry no link (INV-B13). *Proposed in Step 16; not yet confirmed by the problem owner.* | Step 11 vs D8 |
+| **KD13** | **A link is generated at the moment its message is sent; only its protected form is stored.** Notices carry no link (INV-B13). *Proposed in Step 16; **confirmed by the problem owner** before Stage 2.* | Step 11 vs D8 |
 
 ---
 
@@ -962,13 +962,13 @@ The draft was read end to end, looking only for sections that were vague, assump
 | **W9** | **A verified address costs nothing to obtain.** Per-host limits keyed by address are weak against a determined abuser using fresh addresses. | No stronger identity fits N1 as it stands. |
 | **W11** | **The Access Gate rate limit is named three times and defined nowhere** — no key, no window, no response when it is exceeded. | Not designed. |
 | **W12** | **Pacing and the Q8 limit have no stated basis.** At minimum, the limit must exceed the normal 600-guest event (F15), and the response to a batch over the limit is undefined. | Depends on provider limits not yet known (T4). |
-| **W15** | **KD13 is still unconfirmed** — yet the Link record, S5, INV-A7, INV-B13, RC-9 and two rollback rows rest on it. | Awaiting the problem owner. |
+| **W15** | **KD13 was unconfirmed** — yet the Link record, S5, INV-A7, INV-B13, RC-9 and two rollback rows rest on it. | **Resolved before Stage 2:** KD13 confirmed by the problem owner. |
 
 Open questions still standing: **Q2, Q5, Q6, Q8, Q9, Q10.**
 
 ### What a reviewer should push on first
 
-1. **W15 / KD13** — the most weight resting on the least settled decision.
+1. ~~**W15 / KD13** — the most weight resting on the least settled decision.~~ *KD13 confirmed before Stage 2.*
 2. **Q8 with W9 and W12** — the release gate has no number, no basis for one, and a control that a fresh address defeats.
 3. **W4** — the absence of any edit path will surface in the first real use.
 4. **D11** — whether "final" should really stop a guest from saying they can't come.
