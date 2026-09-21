@@ -242,7 +242,7 @@ Only constraints that rule out an option or strongly shape the architecture. The
 | **D12** | **Guests without their own email address are outside the system; the host handles them by phone.** *(Step 18.)* | Keeps one guest = one address = one place (N2), which keeps counting and the waitlist simple. | The system's count covers emailed guests only; the host adds the rest by hand — a small part of the original manual work remains. |
 | **D13** | **No email provider for this task (T4).** The drain hands each message to a **development sender** that writes the recipient, the kind and — for invitation and management-link messages — the link to the application console. No real email is sent. *(Before Stage 2.)* | Stages 2–3 can be built and tested end to end without spending a sender reputation (Rollout: "the drain cannot tell a test from a wedding"). The sender sits behind one interface, so a real provider replaces it without touching the drain. | The console now holds working links (see Step 11 → Logs). Every provider-specific behaviour — acceptance, errors, rate limits — is simulated, not observed. |
 | **D14** | **Per-host invitation limit (Q8): at most 1,000 invitations per verified host address in any rolling 24 hours, across all of that host's events.** A batch that would exceed it is **rejected whole**, with a clear message. *(Before Stage 2.)* | Covers the normal 600-guest event (F15) with room to spare, while limiting a host who opens many events to multiply their allowance (W9). Rejecting whole keeps the host's list either fully invited or not at all — never an arbitrary prefix of it. | A host with more than 1,000 guests must spread invitations over two days. A determined abuser with fresh addresses is still only slowed (W9). |
-
+| **D15** | **Automatic retry of failed sends (Q10): a failed send is retried up to 3 times, with increasing delay between attempts; after the last retry fails, the message is final *failed*.** *(Before Stage 2.)* | Most provider failures are transient; retrying inside the drain spares the host from resending by hand. A bounded count keeps a permanently bad address from being retried forever. | A message can take several delays to reach final *failed* — the host sees it as still pending until then. An invitation retried after its link was stored gets a new link on each attempt (KD13); only the newest works. |
 ### Working assumptions
 
 | # | Assumption | If wrong |
@@ -265,7 +265,6 @@ Only constraints that rule out an option or strongly shape the architecture. The
 | **Q5** | The start time is stored as an **absolute instant** — the lock rule compares it with the database clock and cannot work otherwise. **Open: how the host's entry is turned into that instant** — which time zone they mean. *Whether it can change after invitations: currently no, only because no edit path exists (W4).* | **The correctness of G6 and INV-B7**, not just its wording. |
 | **Q6** | What may a guest see beyond their own state — queue position, totals, other guests? | The guest view. |
 | **Q9** | A host who has lost their management link has no link to name the event with. **How do they identify which event to recover?** Whatever the answer, a reissue request must not let a stranger invalidate a working host's link. | The reissue flow (U9). |
-| **Q10** | When a send fails, is it retried automatically — how often, how far apart — and when does it become final *failed*? | The drain's behaviour on provider errors, and what the host is asked to act on. |
 
 ### Resolved questions
 
@@ -278,6 +277,7 @@ Kept so the reasoning trail stays visible.
 | **Q4** | How does a host regain access without an account? | **D9** — reissue to the verified address *(its entry point is Q9)* |
 | **Q7** | How is a guest reached whose invitation failed? | **D8** — every message has a visible status; resend creates a new one |
 | **Q8** | What is the per-host invitation limit? | **D14** — 1,000 per verified host address per rolling 24 hours, across events; an exceeding batch is rejected whole |
+| **Q10** | Are failed sends retried automatically? | **D15** — up to 3 retries with increasing delay, then final *failed* |
 
 ---
 
@@ -507,7 +507,7 @@ Event fields other than status have **no edit path**. That is why Q2 cannot yet 
 
 A resend (U10) or recovery (U9) **creates a new message** rather than resetting an old one, so the drain remains the only writer of message status.
 
-**Message states:** queued → **sending** (claimed by the drain) → sent · failed · skipped. A message left in *sending* longer than the send timeout — because the drain crashed — returns to *queued*; that is where at-least-once delivery comes from. Whether *failed* is retried automatically is **Q10**.
+**Message states:** queued → **sending** (claimed by the drain) → sent · failed · skipped. A message left in *sending* longer than the send timeout — because the drain crashed — returns to *queued*; that is where at-least-once delivery comes from. A failed attempt with retries left returns to *queued* to wait for its next attempt; *failed* is final only after the last retry (D15).
 
 **Why links are their own record.** Under KD13 a link is created by the drain, at send time. Storing it on the Event or Guest record would give those records a second writer — the exact problem D4 was made to avoid. As a separate record, every record still has exactly one writer, and replacing a link touches nothing else. The Access Gate reads Link records to resolve every request.
 
@@ -942,7 +942,7 @@ The draft was read end to end, looking only for sections that were vague, assump
 |---|---|---|
 | **W1** | S5 generated a link for **every** message, so a promotion notice silently replaced the guest's working invitation link — a direct contradiction between D3 and KD13. | Only invitation and management-link messages generate links. Notices carry none (INV-B13). |
 | **W2** | The Access Gate was defined as "a link resolves, or the request is refused" — which excluded U1 and U9, the two flows that have no link. | The gate has an explicit **open path** that permits only U1 and U9 and never reveals an existing event. |
-| **W3** | The message state machine had no *in-progress* state, so crash recovery and claiming could not be expressed. | *sending* added; a message stuck in it past the send timeout returns to *queued*. **Retry policy is not fixed — it is Q10.** |
+| **W3** | The message state machine had no *in-progress* state, so crash recovery and claiming could not be expressed. | *sending* added; a message stuck in it past the send timeout returns to *queued*. Retry policy: D15. |
 | **W6** | U2 did not say whether a Closed, Cancelled or started event can receive invitations. | Refused. An invitation exists only to allow a reply, and none is possible then. |
 | **W10** | RO-5 was marked *closed* by D9, whose only entry point (Q9) is open. | Marked **partly closed**; RD-5 reworded the same way. |
 | **W13** | F14 and F15 were labelled facts but come from one stakeholder. | Marked as stakeholder input, with the weight F15 carries stated. |
@@ -966,7 +966,7 @@ The draft was read end to end, looking only for sections that were vague, assump
 | **W12** | **Pacing and the Q8 limit have no stated basis.** At minimum, the limit must exceed the normal 600-guest event (F15), and the response to a batch over the limit is undefined. | **Partly resolved:** D14 sets the limit (1,000 / 24 h, above 600) and the response (reject whole). Pacing still has no provider basis (D13). |
 | **W15** | **KD13 was unconfirmed** — yet the Link record, S5, INV-A7, INV-B13, RC-9 and two rollback rows rest on it. | **Resolved before Stage 2:** KD13 confirmed by the problem owner. |
 
-Open questions still standing: **Q2, Q5, Q6, Q9, Q10.**
+Open questions still standing: **Q2, Q5, Q6, Q9.**
 
 ### What a reviewer should push on first
 
