@@ -499,6 +499,8 @@ The two paths share only the Access Gate, the outbox, and the per-event lock. A 
 | **Reply** | Reply record | **Reply Engine only**, inside the per-event lock | Guest, state, the moment the guest entered this state | — |
 | **Outbound message** | Message record | **Created** by the component that owns its cause — Event Management for management links, invitations and cancellation notices; Reply Engine for promotion notices. **Status written only by the drain.** | Kind — management link · invitation · promotion notice · cancellation notice; event; recipient; status: queued · sending · sent · failed · skipped | — |
 
+**Event nullability in the database** *(Stage 1 decision)*: title, start time, status, host email and verified are `NOT NULL`; description and location are nullable in the database and required by Event Management's validation (Stage 2). Under T2 a `NOT NULL` rule cannot be added or removed later, so requiredness that might change is enforced in code, not the schema.
+
 Event fields other than status have **no edit path**. That is why Q2 cannot yet arise, and why a start time cannot move — by omission, not decision.
 
 A resend (U10) or recovery (U9) **creates a new message** rather than resetting an old one, so the drain remains the only writer of message status.
@@ -869,7 +871,7 @@ A greenfield feature on an empty scaffold: no previous version and no data to mi
 - Delete `MessageComposer.tsx`, `RecipientTable.tsx`, `ResultsTable.tsx`, `FileUpload.tsx`, `bulkSendApi.ts` and `types.ts` — empty files left from an unrelated bulk-messaging tool.
 - Report the committed vendor key to the owner of `RamiY123/Xperience-Task-1-2026-04`. Deleting it here does not remove it from history.
 
-**Stage 1 — Reply Engine, with no user interface.** Built first because every failure it can have is silent. *Exits when:*
+**Stage 1 — Reply Engine, with no user interface.** Built first because every failure it can have is silent. *Stage 1 decision:* the status unit (close, cancel — U6) is built here as a service method with no endpoint, because X4 needs a real cancel taking the same per-event lock. It records cancellation notices (INV-B12) from the start; until Stage 2 creates invitations there is no one to notify. *Exits when:*
 - Capacity 1, twenty simultaneous "Yes" → exactly one Confirmed, nineteen Waitlisted in admission order (X1).
 - Two Confirmed guests leave at once with two waitlisted → each promoted exactly once, each with one notice (X2, INV-B10).
 - A reply whose transaction begins before the start but acquires the lock after it → refused (RC-1).
