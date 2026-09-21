@@ -241,6 +241,7 @@ Only constraints that rule out an option or strongly shape the architecture. The
 | **D11** | **After Close, no reply can change — including a decline.** *(Step 18.)* | Close is what the brief says it is (F7): the host closes the list to stop it moving before committing to suppliers. | From close onward the count can only be **too high**: a guest who can no longer come must tell the host directly. |
 | **D12** | **Guests without their own email address are outside the system; the host handles them by phone.** *(Step 18.)* | Keeps one guest = one address = one place (N2), which keeps counting and the waitlist simple. | The system's count covers emailed guests only; the host adds the rest by hand — a small part of the original manual work remains. |
 | **D13** | **No email provider for this task (T4).** The drain hands each message to a **development sender** that writes the recipient, the kind and — for invitation and management-link messages — the link to the application console. No real email is sent. *(Before Stage 2.)* | Stages 2–3 can be built and tested end to end without spending a sender reputation (Rollout: "the drain cannot tell a test from a wedding"). The sender sits behind one interface, so a real provider replaces it without touching the drain. | The console now holds working links (see Step 11 → Logs). Every provider-specific behaviour — acceptance, errors, rate limits — is simulated, not observed. |
+| **D14** | **Per-host invitation limit (Q8): at most 1,000 invitations per verified host address in any rolling 24 hours, across all of that host's events.** A batch that would exceed it is **rejected whole**, with a clear message. *(Before Stage 2.)* | Covers the normal 600-guest event (F15) with room to spare, while limiting a host who opens many events to multiply their allowance (W9). Rejecting whole keeps the host's list either fully invited or not at all — never an arbitrary prefix of it. | A host with more than 1,000 guests must spread invitations over two days. A determined abuser with fresh addresses is still only slowed (W9). |
 
 ### Working assumptions
 
@@ -263,7 +264,6 @@ Only constraints that rule out an option or strongly shape the architecture. The
 | **Q2** | What happens when a host **lowers** capacity below the number confirmed — or **adds** a capacity to an event that had none and already has more confirmed than the new limit? Each answer breaks a different promise: the host's control, a guest's place, or G4. | The capacity-edit path, which does not exist until this is answered. |
 | **Q5** | The start time is stored as an **absolute instant** — the lock rule compares it with the database clock and cannot work otherwise. **Open: how the host's entry is turned into that instant** — which time zone they mean. *Whether it can change after invitations: currently no, only because no edit path exists (W4).* | **The correctness of G6 and INV-B7**, not just its wording. |
 | **Q6** | What may a guest see beyond their own state — queue position, totals, other guests? | The guest view. |
-| **Q8** | **What is the per-host invitation limit?** D9 makes a limit possible; its value is undecided. | **Release — see Rollout, Stage 3.** |
 | **Q9** | A host who has lost their management link has no link to name the event with. **How do they identify which event to recover?** Whatever the answer, a reissue request must not let a stranger invalidate a working host's link. | The reissue flow (U9). |
 | **Q10** | When a send fails, is it retried automatically — how often, how far apart — and when does it become final *failed*? | The drain's behaviour on provider errors, and what the host is asked to act on. |
 
@@ -277,6 +277,7 @@ Kept so the reasoning trail stays visible.
 | **Q3** | Is a promoted guest told, or do they find out by returning? | **D3** — told, through the outbox |
 | **Q4** | How does a host regain access without an account? | **D9** — reissue to the verified address *(its entry point is Q9)* |
 | **Q7** | How is a guest reached whose invitation failed? | **D8** — every message has a visible status; resend creates a new one |
+| **Q8** | What is the per-host invitation limit? | **D14** — 1,000 per verified host address per rolling 24 hours, across events; an exceeding batch is rejected whole |
 
 ---
 
@@ -646,7 +647,7 @@ This has direct consequences:
 
 ### The relay risk (Q8)
 
-U1 (no credential) → U2 → the outbox → email from this system's address. D9 makes each chain attributable to a verified address, so it **can** be limited per host. Until Q8 sets the limit, one verified host can still send without bound — and once the sending address is flagged as spam, **every host's messages stop arriving**, silently.
+U1 (no credential) → U2 → the outbox → email from this system's address. D9 makes each chain attributable to a verified address, so it **can** be limited per host. Without a limit, one verified host could send without bound — and once the sending address is flagged as spam, **every host's messages stop arriving**, silently. **D14 sets the limit:** 1,000 invitations per verified host address per rolling 24 hours, across all of that host's events.
 
 ---
 
@@ -771,7 +772,7 @@ Only risks arising from this architecture, these workflows or these assumptions.
 |---|---|---|---|---|
 | **RD-1** | **Messages never arrive, and nobody knows** | D1: only acceptance is observable | ❌ | **Open — inherent to email** |
 | **RD-2** | Sending stops partway through a batch | Inline sending hitting provider limits | ⚠️ | Closed by D8 — paced |
-| **RD-3** | **Every host's messages start landing in spam** | D1 + E3 + one shared sending identity | ❌ | **Controllable, not controlled** — Q8 limit undecided |
+| **RD-3** | **Every host's messages start landing in spam** | D1 + E3 + one shared sending identity | ❌ | **Controlled per address** by D14; still open to fresh addresses (W9) |
 | **RD-4** | Working credentials for every recipient exposed together | N1 + D1: each message carries a readable link | ❌ | Open — outside this system |
 | **RD-5** | **Host never receives their management link** | D9: host onboarding depends on email | ⚠️ Host sees nothing arrive | Open — U9 recovery is defined, but its entry point (Q9) is open |
 | **RD-6** | A cancelled large event sends hundreds of notices at once from the shared identity | D10 | ❌ | Paced by the drain; adds to RD-3 |
@@ -884,7 +885,7 @@ A greenfield feature on an empty scaffold: no previous version and no data to mi
 - A waitlisted guest repeating "Yes" → same position (INV-B6).
 
 **Stages 2 and 3 — Event Management and the Outbox Drain, released together.** They cannot be released separately: under D9 a host receives their management link *only* through the drain.
-⚠️ **Gate: not released until the Q8 limit is chosen.** Otherwise the first release is an open mail relay. *Exits when:*
+⚠️ **Gate: not released until the Q8 limit is chosen.** Otherwise the first release is an open mail relay. *Chosen before Stage 2: D14.* *Exits when:*
 - `Dana@x.com` then `dana@x.com` → one guest (D5).
 - A 600-address batch submitted twice → 600 guests.
 - No invitation can be queued before the host has verified (INV-A6).
@@ -962,15 +963,15 @@ The draft was read end to end, looking only for sections that were vague, assump
 | **W4** | **No event field can be edited.** A wrong date or venue means cancel, recreate, and re-invite everyone. | Editing the start time moves the lock boundary, and editing capacity is Q2. Neither has been designed. |
 | **W9** | **A verified address costs nothing to obtain.** Per-host limits keyed by address are weak against a determined abuser using fresh addresses. | No stronger identity fits N1 as it stands. |
 | **W11** | **The Access Gate rate limit is named three times and defined nowhere** — no key, no window, no response when it is exceeded. | Not designed. |
-| **W12** | **Pacing and the Q8 limit have no stated basis.** At minimum, the limit must exceed the normal 600-guest event (F15), and the response to a batch over the limit is undefined. | Depends on provider limits not yet known (T4). |
+| **W12** | **Pacing and the Q8 limit have no stated basis.** At minimum, the limit must exceed the normal 600-guest event (F15), and the response to a batch over the limit is undefined. | **Partly resolved:** D14 sets the limit (1,000 / 24 h, above 600) and the response (reject whole). Pacing still has no provider basis (D13). |
 | **W15** | **KD13 was unconfirmed** — yet the Link record, S5, INV-A7, INV-B13, RC-9 and two rollback rows rest on it. | **Resolved before Stage 2:** KD13 confirmed by the problem owner. |
 
-Open questions still standing: **Q2, Q5, Q6, Q8, Q9, Q10.**
+Open questions still standing: **Q2, Q5, Q6, Q9, Q10.**
 
 ### What a reviewer should push on first
 
 1. ~~**W15 / KD13** — the most weight resting on the least settled decision.~~ *KD13 confirmed before Stage 2.*
-2. **Q8 with W9 and W12** — the release gate has no number, no basis for one, and a control that a fresh address defeats.
+2. **Q8 with W9 and W12** — the release gate now has a number (D14), but a control that a fresh address defeats.
 3. **W4** — the absence of any edit path will surface in the first real use.
 4. **D11** — whether "final" should really stop a guest from saying they can't come.
 5. **Q9** — host recovery is designed but has no way in.
