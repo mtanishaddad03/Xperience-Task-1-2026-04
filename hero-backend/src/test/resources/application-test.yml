@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/hero?currentSchema=hero_test
+    hikari:
+      # Concurrency tests hold 20+ transactions open at the same instant.
+      maximum-pool-size: 30
+
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: hero_test
+        hbm2ddl:
+          create_namespaces: true
