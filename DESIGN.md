@@ -1,31 +1,40 @@
 # Event RSVP Manager — Design File
 
-**Status:** design complete, implementation not started.
-**Method:** produced by working through the 18 steps of *Building a Design File
-from Scratch with an AI Partner*, in order, with Claude as the AI partner.
-Section headings carry their step number so the process can be checked against
-the guide.
+**Status:** first complete design draft. Implementation not started.
+**Method:** built by working through the steps of *Building a Design File from Scratch with an AI Partner*, in order, with Claude as the AI partner. Each section heading carries the step it came from.
+**Pre-review weakness check (Step 18):** performed — see the final section. What remains weak is listed there, not hidden.
 
-This document is written to be **disagreed with**. Decisions carry the
-reasoning that produced them so a reviewer can attack the reasoning rather than
-guess at it; assumptions are separated from facts so it is clear which claims
-are load-bearing; and the questions that are still open are marked open rather
-than quietly resolved. Nothing here should be read as settled merely because it
-is written in confident prose.
+This document is written to be challenged. Every decision carries the reasoning that produced it; facts, decisions, assumptions and open questions are kept in separate lists; and anything unresolved is marked as unresolved rather than quietly settled.
+
+### Reading the labels
+
+| Label | Meaning | Defined in |
+|---|---|---|
+| **F** | Confirmed fact | Facts, Assumptions, and Open Questions |
+| **D** | Decision taken, with reasoning | Facts, Assumptions, and Open Questions · Alternatives |
+| **A** | Working assumption — could be wrong | Facts, Assumptions, and Open Questions |
+| **Q** | Open question | Facts, Assumptions, and Open Questions |
+| **G / N / SC** | Goal / Non-goal / Success condition | Problem Statement · Goals and Non-Goals |
+| **T / P / O / R** | Technical / Product / Operational / Organizational constraint | Context and Constraints |
+| **U / S / B / X** | User-facing / Internal / Background / Failure flow | Actors and Workflows |
+| **INV** | Invariant | Invariants |
+| **KD** | Key design choice | Architecture |
+| **E** | Trust entry point | Trust Boundaries |
+| **RC / RD / RO** | Correctness / Dependency / Operational risk | Risks |
 
 ### Contents
 
 | Section | Step |
 |---|---|
-| [Setup and Method](#setup-and-method-step-01) | 01 |
-| [Raw Feature Brief](#raw-feature-brief-step-02) | 02 |
-| [Problem Statement](#problem-statement-step-03) | 03 |
-| [Goals and Non-Goals](#goals-and-non-goals-step-04) | 04 |
-| [Context and Constraints](#context-and-constraints-step-05) | 05 |
-| [Facts, Assumptions, and Open Questions](#facts-assumptions-and-open-questions-step-06) | 06 |
-| [Actors and Workflows](#actors-and-workflows-step-07) | 07 |
-| [Invariants](#invariants-step-08) | 08 |
-| [Architecture](#architecture-step-09) | 09 |
+| [Setup](#setup-step-1) | 1 |
+| [Raw Feature Brief](#raw-feature-brief-step-2) | 2 |
+| [Problem Statement](#problem-statement-step-3) | 3 |
+| [Goals and Non-Goals](#goals-and-non-goals-step-4) | 4 |
+| [Context and Constraints](#context-and-constraints-step-5) | 5 |
+| [Facts, Assumptions, and Open Questions](#facts-assumptions-and-open-questions-step-6) | 6 |
+| [Actors and Workflows](#actors-and-workflows-step-7) | 7 |
+| [Invariants](#invariants-step-8) | 8 |
+| [Architecture](#architecture-step-9) | 9 |
 | [Data Ownership and State Model](#data-ownership-and-state-model-step-10) | 10 |
 | [Trust Boundaries and Security Notes](#trust-boundaries-and-security-notes-step-11) | 11 |
 | [Concurrency and Correctness Notes](#concurrency-and-correctness-notes-step-12) | 12 |
@@ -35,34 +44,24 @@ is written in confident prose.
 | [Rollout and Migration Notes](#rollout-and-migration-notes-step-16) | 16 |
 | [Pre-Review Weakness Check](#pre-review-weakness-check-step-18) | 18 |
 
-### How to read the reference labels
+---
 
-| Label | Meaning | Defined in |
-|---|---|---|
-| **D1–D4** | Decisions that were made, with reasoning | Step 06 |
-| **A1–A7** | Assumptions that could be wrong | Step 06 |
-| **Q1–Q3** | Questions still open | Step 06 |
-| **W1–W8** | Workflows | Step 07 |
-| **INV-1–INV-12** | Named invariants | Step 08 |
-| **C1–C9** | Concurrency scenarios | Step 12 |
-| **R1–R16** | Risks | Step 14 |
+## Setup *(Step 1)*
+
+The design was built under four standing rules:
+
+- **Do not invent missing system details.** Every system fact is read from the scaffold or the requirement, and says where.
+- **Keep facts, assumptions and open questions separate.**
+- **Stay high-level.** No code; mechanisms are named by kind.
+- **Build step by step**, with each section derived from the ones before it.
 
 ---
 
-## Setup and Method *(Step 01)*
+## Raw Feature Brief *(Step 2)*
 
-- **Feature:** Event RSVP Manager (as described in the task README).
-- **AI partner:** Claude, working directly inside this repo's `DESIGN.md`.
-- **Process:** Work through the 18 steps in order. Each step's output is appended
-  to this file as its own section. Working notes / back-and-forth with the AI
-  stay out of the file — only the agreed-on result is kept here.
-- **Stack (fixed by the scaffold):** Java 17, Spring Boot 4, Spring Data JPA,
-  PostgreSQL, React 18 + TypeScript + Vite. *(The README says React 19; the
-  actual pin is 18.3 — see Step 05.)*
+### The requirement
 
-## Raw Feature Brief *(Step 02)*
-
-> Captured verbatim from the task README, as the input for the rest of the design.
+Taken verbatim from the task README (lines 23–32), which designates it as the input for this step:
 
 - A user can create an event with a title, description, date/time, location, and optional max-capacity.
 - The creator becomes the **host** of that event.
@@ -75,1155 +74,902 @@ is written in confident prose.
 - An invitee can change their RSVP at any point **before** the event starts.
 - After the event start time, all RSVPs are locked.
 
-## Problem Statement *(Step 03)*
+### Structured
 
-A host running a capacity-limited event has no reliable way to know, at any given
-moment, how many people are actually coming. Invitations and replies are tracked
-by hand across scattered channels, which produces three concrete failures:
+| | |
+|---|---|
+| **What it is** | A web application in which a host invites a known list of people by personal link, and receives a live, trustworthy picture of who is coming — with an optional capacity limit, an automatically advancing waitlist, and replies that lock at the event's start. |
+| **Who needs it** | **Host** — a private individual organising a wedding, party or family event, with no IT support. **Guest** — receives a link, replies, may change their mind; manages no account. |
+| **Why it exists** | The brief itself states no rationale. It was supplied by the problem owner: the host **cannot know how many people will actually come**, and **spends their time chasing replies by hand.** |
+| **System areas** | Event creation and lifecycle · invitation by email · identity by personal link · capturing and changing replies · capacity accounting · waitlist and promotion · host status view · time-based locking |
+| **Already known** | The scaffold is Spring Boot + PostgreSQL + React; it has no authorization of any kind; it wires a WhatsApp vendor although the brief says email; it has no migration tool; it runs as one process. |
+| **Unsure about** | Edge cases — cancellation, capacity changes, last-minute changes; and identity — who is actually clicking a link. |
 
-1. **Overbooking.** Nothing enforces the capacity limit at the moment a reply
-   arrives, so more people are told "you're in" than the venue can hold.
-2. **Manual waitlist management.** When the limit is reached, the overflow is
-   tracked informally, and a freed spot does not reach the next person in line
-   unless the host notices and reaches out personally.
-3. **No clear cut-off.** There is no defined moment at which the guest list
-   becomes final, so the host is reconciling changes up to (and past) the event.
+---
 
-The same problem is felt from the other side. An invitee cannot tell whether
-their "Yes" actually secured a place or put them on a waitlist, cannot see
-whether a waitlisted place has since been confirmed, and has no way to change
-their mind without going back through the host. The result is that both sides
-hold a different, and usually stale, picture of the same guest list.
+## Problem Statement *(Step 3)*
 
-This system makes RSVP and capacity **enforced, live state** instead of informal
-correspondence: a reply is evaluated against capacity at the moment it is made,
-the outcome (confirmed or waitlisted) is told back to the invitee immediately,
-waitlist promotion happens automatically when a spot frees, and responses lock
-themselves at event start without the host having to do anything.
+### The problem
 
-## Goals and Non-Goals *(Step 04)*
+A person hosting a private event with a fixed guest list cannot know how many of the people they invited will actually attend.
+
+Replies arrive through whatever channel each guest happens to use, at whatever time suits them, and frequently not at all. The host is the only place where those replies come together, so the guest list exists only as the host's own reconstruction of it — out of date from the moment it is made, because guests keep changing their minds.
+
+Because the host is the sole point of consolidation:
+
+- The list reflects the last time the host went and asked, not the present.
+- A guest who changes their mind must interrupt the host to do so. Many therefore don't, and the change surfaces on the day.
+- Where the venue imposes a limit, nobody but the host is checking the list against it.
+- A guest who has replied has no way of learning what their reply amounted to.
+
+### Business motivation
+
+- **Money is committed before the count is known.** Catering is priced per head and venues by capacity, both contracted in advance. An overestimate is paid for and wasted; an underestimate is discovered in front of the guests.
+- **The host's time is spent repeatedly and unproductively.** Chasing replies recurs in full every time anything changes.
+- **The cost of getting it wrong is personal.** A guest turned away, or a half-empty room, is blamed on the host by people they know. A private host has no way to absorb this as an operating loss.
+
+### Success conditions
+
+The problem is solved when all of the following hold:
+
+| # | Condition |
+|---|---|
+| **SC1** | The headcount available to the host is accurate at the moment it is consulted, and obtaining it requires no contact with any guest. |
+| **SC2** | A guest changing their mind imposes no cost on the host, and none on the guest beyond making the decision. |
+| **SC3** | No guest is left uncertain whether they hold a place. |
+| **SC4** | **When the host has declared a capacity**, the number of guests holding places never exceeds it — at any moment, including when replies are made at the same instant. |
+| **SC5** | **When a capacity exists**, a place given up by a guest does not sit unused while someone would still take it. |
+| **SC6** | The guest list reaches a final state at a moment fixed in advance, without the host doing anything at that moment. |
+| **SC7** | A host's decision to stop accepting replies, or to call the event off, holds for every affected guest at once. |
+
+SC4 and SC5 are conditional because **the primary case has no capacity at all** (F15).
+
+### Explicitly not success
+
+- **A count that is only trustworthy if the host verifies it personally.** The verification *is* the problem.
+- **An arrangement in which replying is harder than the informal channels it replaces.** A guest who ignores a message will not overcome a larger obstacle.
+
+---
+
+## Goals and Non-Goals *(Step 4)*
 
 ### Goals
 
-1. One authoritative RSVP per invitee (Yes / No / Maybe), current until the
-   event starts.
-2. Max-capacity is enforced automatically at the moment a reply is written —
-   confirmed attendees never exceed it.
-3. A "Yes" that arrives after capacity is reached is **waitlisted**, not
-   rejected.
-4. A freed confirmed place automatically promotes the next waitlisted invitee,
-   with no host action.
-5. The invitee is told their own outcome — confirmed or waitlisted — at the
-   moment they reply, and sees it change if they are later promoted.
-6. An invitee can change their own reply, without going through the host, at
-   any time before the event starts.
-7. The host sees live, accurate counts and attendee status.
-8. RSVPs lock automatically at event start.
-9. The host can end responses early — close (event still happens) or cancel
-   (event does not happen).
+| # | Goal | Derived from |
+|---|---|---|
+| **G1** | The host can obtain a headcount accurate at the moment they consult it, without contacting any guest. *Scope: guests invited by email (D12).* | SC1 |
+| **G2** | A guest can revise their own reply at any time before the event, without involving the host. | SC2 |
+| **G3** | A guest always knows their own standing — whether they hold a place or not. | SC3 |
+| **G4** | When a capacity is set, guests holding places never exceed it, under any pattern of replies including simultaneous ones. | SC4 |
+| **G5** | When a capacity is set, a relinquished place does not sit unused while anyone would still take it. | SC5 |
+| **G6** | The guest list becomes final at a moment fixed in advance, with no action by the host at that moment. | SC6 |
+| **G7** | The host can end replies early, and that decision holds for every guest at once — and if the event is cancelled, every invited guest is told (D10). | SC7 |
 
-### Non-Goals
+### Non-goals
 
-1. **No accounts or login.** Both the host and the invitee are identified
-   solely by holding an unguessable link. Nothing is built for registration,
-   passwords, or sessions.
-2. **No co-hosts.** Exactly one owner per event; ownership is not transferable
-   or shareable.
-3. **No payments or ticketing.** No money, tickets, or refunds anywhere in the
-   system.
-4. **No recurring events.** Every event is a single, one-off occurrence.
-5. **No plus-ones.** One invitee is exactly one place. Capacity counts
-   invitees, never seats — this is what keeps waitlist promotion a simple
-   ordered queue rather than a fitting problem.
-6. **No public discovery.** Events are reachable only through a link the host
-   distributes; there is no browsing, search, or public listing.
-7. **No cross-event reporting.** Each event is viewed on its own; there is no
-   aggregate view across a host's events.
-8. **No alternate response channels.** Replies arrive through the link only —
-   not by replying to the email, and not by SMS.
+Each names the argument it exists to defeat. ⚠️ marks the three a reviewer is most likely to challenge for this use case.
 
-## Context and Constraints *(Step 05)*
+| # | Excluded | Why | Defeats the argument |
+|---|---|---|---|
+| **N1** | **Accounts, passwords and login — for anyone.** Guests do nothing but open their link. Hosts confirm one email address and nothing more *(revised by D9)*. | Replying must not be harder than the channels it replaces. | "We need to know who actually replied." The problem is guests not replying, not guests impersonating each other. **The identity gap this leaves is recorded, not solved.** |
+| **N2** ⚠️ | Plus-ones or per-guest party sizes | Counting seats instead of people makes G5 undecidable: when one place frees and the next guest needs two, order stops meaning anything or the place is wasted. | "Every wedding has plus-ones." A real limitation for this use case. |
+| **N3** ⚠️ | Co-hosts or shared ownership | The problem is consolidation in one head, not *which* head. | "A couple plans a wedding together." Excluded for cost, not because it is unreasonable. |
+| **N4** | Messaging, chat or Q&A between host and guests | Puts the host back in the position the problem identifies as the cause. | "While we have their attention…" |
+| **N5** | Meal choices, dietary needs, seating, any other guest attribute | Logistics that become tractable only after the count is trustworthy. | "We already have the list." Every attribute must stay correct across reply changes. |
+| **N6** ⚠️ | Automatic reminders to guests who have not replied | SC1 requires a count without contacting anyone; chasing, even automated, is chasing. *Promotion notices (D3) are not reminders — they report a change the guest did not cause.* | "Non-response is the real problem." The most defensible challenge in this list. |
+| **N7** | Public discovery, search, or open sign-up | The problem assumes a fixed, known guest list. | — |
+| **N8** | Payments, ticketing, refunds | Money appears only as something the host commits to suppliers. | — |
+| **N9** | Recurring events | Nothing in the problem recurs. | — |
+| **N10** | Cross-event views or reporting | The host organises one event, not a programme. | — |
+| **N11** | Guests without their own email address | One guest is one address is one place (N2). The host handles such guests directly, by phone (D12). | "Grandma has no email." She is counted by the host, outside the system. |
 
-All statements below were read out of the scaffold itself, not assumed.
+---
+
+## Context and Constraints *(Step 5)*
+
+Only constraints that rule out an option or strongly shape the architecture. The scaffold is empty, so each is a floor, never inherited baggage.
 
 ### Technical
 
-- **Stack is fixed and cannot be substituted.** Spring Boot `4.0.5`, Java 17,
-  Spring MVC, Spring Data JPA, Lombok, PostgreSQL driver (`hero-backend/pom.xml`).
-  Frontend is Vite + React + TypeScript with Tailwind 4.
-- **Schema is managed by Hibernate `ddl-auto: update`** against schema `hero`
-  (`application.yml`). There is no Flyway/Liquibase. Consequence: schema changes
-  must be **additive** — new columns must be nullable or defaulted, because
-  there is no backfill step and no rollback path other than a manual fix
-  forward.
-- **No authentication or authorization infrastructure exists.** The pom has no
-  `spring-boot-starter-security`. Every access check in this design has to be
-  written by hand, in application code.
-- **No validation starter and no mail starter.** There is no
-  `spring-boot-starter-validation` and no `spring-boot-starter-mail`, so both
-  input validation and email delivery are currently unimplemented capabilities,
-  not configured ones.
-- **The backend is effectively empty**: one `@SpringBootApplication` class and
-  a config file. No entities, repositories, controllers, or services exist.
-- **The frontend contains leftovers from a different application.** `src/` holds
-  empty placeholder files named `MessageComposer.tsx`, `RecipientTable.tsx`,
-  `ResultsTable.tsx`, `FileUpload.tsx`, `bulkSendApi.ts` and `types.ts` — a bulk
-  messaging tool, not an RSVP manager. They are 0 bytes and carry no behaviour,
-  but the naming will mislead a reader and should be removed rather than reused.
-- **Single instance, single process.** `start.ps1` launches exactly one backend
-  on port 8280 and one frontend on 5171, with no clustering. Therefore
-  concurrency correctness may rely on the database, but must not assume
-  in-process locking will still work if this is ever scaled out.
+| # | Constraint | Rules out |
+|---|---|---|
+| **T1** | **Nothing in the stack holds a session.** No security starter; no session, token or cookie mechanism. *(`hero-backend/pom.xml`)* | Any design where identity is established once and remembered. Identity must travel with each request. |
+| **T2** | **Stored state is effectively permanent; derived state is free.** `ddl-auto: update`, no migration tool — columns cannot be renamed or retyped, nothing is backfilled, and constraints are created once. *(`application.yml`)* | Storing any value whose definition might change — counts, orderings, computed statuses. **The strongest architectural pressure in the project.** |
+| **T3** | **One process, one database.** *(`start.ps1`)* | In-process locking or in-memory state as the basis of correctness — it would work today and be silently wrong with a second instance. Correctness belongs in the database. |
+| **T4** | **No outbound communication plumbing.** No mail starter, no queue, no worker. | Any design where telling someone something is free. Every outbound message is a capability to be built. |
 
 ### Product
 
-- Scope is fixed by the brief and by the Non-Goals above.
-- **A live conflict exists between the brief and the scaffold.** The brief says
-  invitees are invited **by email**, but `application.yml` wires a WhatsApp
-  sending vendor (`wasender.api-url: https://wasenderapi.com/api/send-message`).
-  This is carried into Step 06 as an open question, not silently resolved here.
+| # | Constraint | Rules out |
+|---|---|---|
+| **P1** | **Human scale, one event, one private host.** Tens of guests, at most low hundreds. | Every design justified by scale — caching, replicas, stored counters, eventual consistency. |
 
 ### Operational
 
-- Local single-developer Windows setup; Postgres expected on `localhost:5432`
-  with credentials `postgres` / `1234` hardcoded in `application.yml`.
-- **A live third-party API key is committed in plaintext** in `application.yml`
-  as the default value of `WASENDERAPI_KEY`. It is inherited from the upstream
-  template repository, which is public, so it is already exposed and is present
-  in this fork's git history as well. It is recorded here as a present fact, not
-  a hypothetical risk.
-- No CI, no deployment pipeline, no logging or monitoring beyond Hibernate's
-  `show-sql: true`. Nothing restarts either process if it dies.
+| # | Constraint | Rules out |
+|---|---|---|
+| **O1** | **Nothing is supervised and nothing is observed.** Two processes launched by `start.ps1`, restarted by nothing; observability is `show-sql: true`. *(Corrected in Step 15.)* | (a) **Separate** processes that must keep running — nothing restarts them. Work scheduled *inside* the application is permitted **only if its backlog is visible in-band**. (b) *"We will monitor it"* as the mitigation for any risk. |
 
-### Documentation accuracy
+### Organizational
 
-- The README states React 19; `package.json` actually pins React `^18.3.1`.
-  A design that assumes React 19-only behaviour would be built on a false
-  premise, so React 18 is treated as the fact.
+| # | Constraint | Rules out |
+|---|---|---|
+| **R1** | **One person is the developer and the operator.** | Any design whose correctness depends on someone tending it. |
 
-## Facts, Assumptions, and Open Questions *(Step 06)*
+**Recorded but not design-shaping:** the README states React 19 while `package.json` pins `^18.3.1`; there is no validation starter. Neither changes any decision here.
 
-### Facts
+---
 
-Each of these is either stated in the brief or readable in the scaffold. None
-of them is a choice this design made.
+## Facts, Assumptions, and Open Questions *(Step 6)*
 
-1. An event carries a title, description, date/time, location, and an
-   **optional** max-capacity. The creator is its host.
-2. Invitees reply through a unique link, choosing Yes, No, or Maybe.
-3. A "Yes" that arrives once capacity is reached is waitlisted, not refused.
-4. When a confirmed attendee changes to No, a waitlisted attendee is promoted.
-5. Replies can be changed until the event starts; afterwards they are locked.
-6. The host can cancel the event, or close it to further replies, at any time.
-7. The scaffold has no authentication or authorization of any kind.
-8. The scaffold wires a WhatsApp vendor while the brief specifies email.
-9. Schema evolution is `ddl-auto: update` only — additive, no migrations.
-10. The application runs as exactly one backend process.
+### Confirmed facts
 
-### Decisions made (previously ambiguous, now settled)
+| # | Fact | Source |
+|---|---|---|
+| **F1** | An event has a title, description, date/time, location and an **optional** max-capacity; its creator is the host. | README brief |
+| **F2** | Each invitee receives a unique link and replies Yes, No or Maybe. | README brief |
+| **F3** | Once capacity is reached, a further "Yes" is waitlisted, not refused. | README brief |
+| **F4** | When a confirmed attendee changes to No, a waitlisted attendee is promoted. | README brief |
+| **F5** | A reply may be changed at any point before the event starts. | README brief |
+| **F6** | After the event start time, all replies are locked. | README brief |
+| **F7** | The host may cancel the event, or close it to further replies, at any time. | README brief |
+| **F8** | The host sees live counts and a list of attendees. | README brief |
+| **F9** | No authentication or authorization infrastructure exists. | `pom.xml` |
+| **F10** | Schema is managed by `ddl-auto: update`; no migration tool. | `application.yml` |
+| **F11** | The application runs as one process against one database. | `start.ps1` |
+| **F12** | A WhatsApp vendor is wired in configuration while the brief specifies email. | `application.yml` vs README |
+| **F13** | The backend has no entities, repositories or controllers. | `hero-backend/src` |
+| **F14** | The host is a private individual organising a single event, with no IT support. | Problem owner ¹ |
+| **F15** | **The primary case sets no capacity.** A host invites a known list — possibly several hundred people — and wants to know how many confirm. Capacity is the exception. | Problem owner ¹ |
 
-These were genuine choices. They are recorded with their reasoning so a
-reviewer can disagree with the reasoning, not just the outcome.
+¹ *Stakeholder input from one problem owner, not independently verified. Treated as fact because the design is built for that owner; F15 in particular carries a lot of weight — it makes A3 the main path and lowers the priority of Q2. If it does not generalise, see Assumption failures.*
 
-**D1 — Invites are delivered by email.**
-The brief is the requirement; the WhatsApp wiring is residue from a different
-application that happened to share this scaffold. The `wasender` block is to be
-**deleted**, not merely left unused — while it remains, the exposed vendor key
-stays a live liability for no benefit. *If this is wrong*, both the invitee data
-model and the delivery component need rework, not a small edit.
+### Decisions
 
-**D2 — Only "Yes" consumes capacity. "Maybe" does not.**
-"Maybe" means the invitee has not committed, and holding a place for an
-uncommitted person is what causes a half-empty room. *Known cost, accepted:* if
-many "Maybe" invitees switch to "Yes" close to the event, they will land on the
-waitlist in a burst. This is a deliberate trade, not an oversight.
+| # | Decision | Reasoning | Accepted cost |
+|---|---|---|---|
+| **D1** | **Invitations are delivered by email.** The WhatsApp configuration is deleted, not disabled. | The brief is the requirement; the WhatsApp wiring is residue from an unrelated application. | If wrong, the guest record and delivery path need rework. |
+| **D2** | **Leaving Confirmed for "Maybe" releases a place**, exactly as leaving for "No" does. | Otherwise "Maybe" holds a place without commitment — the uncertainty G1 exists to remove. | A hesitating guest loses their place and re-enters at the back. Reliability of the count is chosen over fairness to the hesitant. *Extends F4, which names only "No".* |
+| **D3** | **A promoted guest is told.** A promotion notice is recorded in the same all-or-nothing step as the promotion and sent through the outbox (D8). It is sent only if still true when its turn comes. *(Revised in Step 15 — originally silent.)* | Silent promotion produced a guest counted as coming who never knew (X11). The original reason for silence — no way to send — was removed by D8. | A notice sent close to the event may be read too late. |
+| **D4** | **Guest and Reply are separate records**, one writer each. A guest with no Reply is *Pending*. | One record with two writers leaves nothing structural preventing either from overwriting the other. | Counts combine two records — negligible at P1 scale. |
+| **D5** | **An email address is invited at most once per event**, compared after normalisation. A repeated address is skipped individually, never failing the batch. | Prevents one person holding two places — and makes the host's largest operation, a batch of hundreds, safe to retry. | — |
+| **D6** | **Between two tabs of the same guest, the last submission wins.** No version check. | A version check would also refuse a guest's own "No" after a promotion changed her record without her knowing. | A guest's earlier intention can win if the network reorders two submissions. |
+| **D7** | **Closed may become Cancelled.** Cancelled is the only terminal state. | A host who closes replies and then has to call the event off must be able to. | — |
+| **D8** | **Outgoing email goes through an outbox, drained by a scheduled task inside the application.** | Sending hundreds of messages inside one request fails at the normal size (Step 13); the outbox makes sending paced, resumable, and visible. | One scheduled task; at-least-once delivery. |
+| **D9** | **The host verifies their email address.** The management link is sent there; **confirming from it** verifies the host; invitations cannot be sent before that. A lost link is reissued to the same address. | The only way to give a host a way back in (Q4), and to make invitations attributable (Q8). | Host onboarding depends on email arriving. |
+| **D10** | **Guests are told when an event is cancelled.** A cancellation notice is recorded for every guest whose invitation was sent, in the same all-or-nothing step as the cancel, and sent through the outbox. *(Step 18.)* | The same reasoning as D3, more strongly: a guest who is not told about a change they did not cause will not act on it — here, hundreds of people travelling to an event that is not happening. | A burst of notices from the one shared sending identity (RD-6). |
+| **D11** | **After Close, no reply can change — including a decline.** *(Step 18.)* | Close is what the brief says it is (F7): the host closes the list to stop it moving before committing to suppliers. | From close onward the count can only be **too high**: a guest who can no longer come must tell the host directly. |
+| **D12** | **Guests without their own email address are outside the system; the host handles them by phone.** *(Step 18.)* | Keeps one guest = one address = one place (N2), which keeps counting and the waitlist simple. | The system's count covers emailed guests only; the host adds the rest by hand — a small part of the original manual work remains. |
 
-**D3 — Identity is capability-based: holding the link is the authorization.**
-There is no login for either role. The host receives one durable management
-link at creation; each invitee receives their own. *Known cost, accepted:* a
-leaked link is a full compromise with no revocation path, and a host who loses
-their link permanently loses control of that event.
+### Working assumptions
 
-**D4 — One invitee is exactly one place.**
-Capacity counts invitees, not seats (see Non-Goal 5). This is what keeps the
-waitlist an ordered queue rather than a fitting problem.
+| # | Assumption | If wrong |
+|---|---|---|
+| **A1** | Only "Yes" consumes a place; "Maybe" does not. | The capacity rule changes shape. |
+| **A2** | The waitlist is first-in-first-out by the time a guest entered it. | Promotion needs a ranking model; ties become visible. |
+| **A3** | **No capacity means no waitlist — every "Yes" is confirmed.** This is the primary path (F15). | The ordinary case inherits machinery it has no use for. |
+| **A5** | Close means final **for replies — including declines (D11)**; Cancel means final **for the event**. *(Revised by D7.)* | The event state model changes. |
+| **A6** | Links are durable and reusable until replaced. | Expiry becomes a core mechanism. |
+| **A7** | A waitlisted guest leaving releases nothing. | Promotion fires on departures that free no place, over-filling the event. |
+| **A8** | The number invited is independent of capacity — a host may invite more people than the room holds. | Invitation needs validation it does not have. |
 
-### Assumptions
+*(A4 became D2.)*
 
-Not established by the brief. Each is a reasonable reading that could turn out
-to be wrong, and each is written so that its failure is recognisable.
+### Open questions
 
-1. **The waitlist is first-in, first-out**, ordered by the time the "Yes" was
-   recorded. *If wrong:* promotion needs a real ranking model (host-curated or
-   priority), not a timestamp read.
-2. **An event with no max-capacity never waitlists anyone** — every "Yes" is
-   confirmed. *If wrong:* "unlimited" needs to become a distinct, explicit state
-   rather than the absence of a value.
-3. **The number of people invited is unbounded** and independent of capacity —
-   a host may deliberately invite more people than the room holds. *If wrong:*
-   invitation itself needs a validation rule that does not exist today.
-4. **"Close" and "cancel" are different.** A closed event still happens but
-   accepts no further replies; a cancelled event does not happen at all. Both
-   are final. *If wrong:* one of them needs to become reversible, which changes
-   the event state machine.
-5. **Links are durable and reusable**, not single-use — an invitee returns to
-   the same link to see or change their answer. *If wrong:* the whole
-   capability model needs expiry and reissue, which it has no place for.
-6. **A waitlisted invitee changing to No frees nothing**, because they were not
-   holding a place. Only a *confirmed* attendee leaving triggers promotion.
-7. **Promotion is silent.** A promoted invitee sees their new status when they
-   next open their link; the system does not push them a message. *If wrong:*
-   delivery stops being invite-only and becomes part of the RSVP flow.
+| # | Question | Blocks |
+|---|---|---|
+| **Q2** | What happens when a host **lowers** capacity below the number confirmed — or **adds** a capacity to an event that had none and already has more confirmed than the new limit? Each answer breaks a different promise: the host's control, a guest's place, or G4. | The capacity-edit path, which does not exist until this is answered. |
+| **Q5** | The start time is stored as an **absolute instant** — the lock rule compares it with the database clock and cannot work otherwise. **Open: how the host's entry is turned into that instant** — which time zone they mean. *Whether it can change after invitations: currently no, only because no edit path exists (W4).* | **The correctness of G6 and INV-B7**, not just its wording. |
+| **Q6** | What may a guest see beyond their own state — queue position, totals, other guests? | The guest view. |
+| **Q8** | **What is the per-host invitation limit?** D9 makes a limit possible; its value is undecided. | **Release — see Rollout, Stage 3.** |
+| **Q9** | A host who has lost their management link has no link to name the event with. **How do they identify which event to recover?** Whatever the answer, a reissue request must not let a stranger invalidate a working host's link. | The reissue flow (U9). |
+| **Q10** | When a send fails, is it retried automatically — how often, how far apart — and when does it become final *failed*? | The drain's behaviour on provider errors, and what the host is asked to act on. |
 
-### Open Questions
+### Resolved questions
 
-Unresolved. Listed as a first-class section, not a footnote.
+Kept so the reasoning trail stays visible.
 
-**Q1 — What happens when a host lowers max-capacity below the number of people
-already confirmed?**
-Three defensible answers exist: reject the edit; demote the most recently
-confirmed attendees back to the waitlist; or allow the event to sit temporarily
-over capacity and let attrition resolve it. Each one breaks a different
-promise — respectively the host's control, an attendee's confirmed place, or
-the capacity invariant itself.
-**Status: genuinely open.** *Not blocking:* everything else can be built first.
-The capacity-reduction endpoint must not ship until this is answered, because
-its effect on already-confirmed attendees is currently undefined.
+| # | Question | Resolved by |
+|---|---|---|
+| **Q1** | Email or WhatsApp for invitations? | **D1** — email |
+| **Q3** | Is a promoted guest told, or do they find out by returning? | **D3** — told, through the outbox |
+| **Q4** | How does a host regain access without an account? | **D9** — reissue to the verified address *(its entry point is Q9)* |
+| **Q7** | How is a guest reached whose invitation failed? | **D8** — every message has a visible status; resend creates a new one |
 
-**Q2 — Is a promoted invitee actively told, or do they find out by returning?**
-Assumption 7 currently says silent, which is the cheapest option and the one
-that needs no delivery infrastructure beyond invitations. But a person who was
-told "you are on the waitlist" and is never told otherwise will simply not
-attend, which defeats the promotion mechanism entirely.
-**Status: open**, and worth resolving before implementation, because it decides
-whether delivery is a one-time concern or an ongoing one.
+---
 
-**Q3 — If a host loses their management link, is there any recovery path?**
-D3 implies no. That is tolerable for a course exercise with one technical host,
-and clearly unacceptable for real users.
-**Status: open**, deliberately deferred — answering it properly means
-introducing accounts, which Non-Goal 1 excludes.
-
-## Actors and Workflows *(Step 07)*
+## Actors and Workflows *(Step 7)*
 
 ### Actors
 
-| Actor | What it is | How it is identified | What it may do |
+| Actor | Identified by | May do |
+|---|---|---|
+| **Host** | Holding the event's management link | Create, invite, resend, view status, close, cancel |
+| **Guest** | Holding their own link | Reply and revise **their own** reply |
+| **System** | — | Enforce capacity, promote, lock, send queued messages |
+| **Email provider** | — | Deliver messages; holds each link in transit |
+| **Link holder** *(unintended)* | Indistinguishable from the guest | Anything the guest may do — a known gap under N1 |
+
+State names used below: **Event** Open · Closed · Cancelled. **Reply** *(none = Pending)* · Confirmed · Waitlisted · Declined · Maybe.
+
+### User-facing flows
+
+| Flow | Trigger | Major steps | State changes | Depends on |
+|---|---|---|---|---|
+| **U1** Create event | Host submits details and their email | Validate; start time in the future; create event; queue the management-link message | Event **Open**, host **unverified** | D9, Q5 |
+| **U8** Verify host | Host opens the management link **and explicitly confirms** | Resolve link; mark host verified | Host **verified** | D9 — a page load alone never verifies (E6) |
+| **U2** Invite guests | Host submits addresses | Resolve management link; require verified host; **require the event Open and not started**; create each guest with an invitation message, skipping existing addresses | Guests created; messages queued | D5, D8, D9, Q8 |
+| **U3** First reply | Guest submits Yes/No/Maybe | Resolve link; lock check; capacity decision if "Yes" and capacity set; record; show outcome | Pending → Confirmed / Waitlisted / Declined / Maybe | A1, A3 |
+| **U4** Change reply | Guest submits a different reply | Resolve; lock check; release or request a place; promote if released; record | See transition table | D2, A7 |
+| **U5** View status | Host opens event | Resolve management link; compute counts; list guests; show message backlog and failures | None | KD12 |
+| **U6** Close or cancel | Host chooses | Resolve; state guard; set status; **on cancel, record a cancellation notice for every guest whose invitation was sent** | Open → Closed / Cancelled; Closed → Cancelled | D7, D10, D11 |
+| **U7** Check own standing | Guest opens link | Resolve; show event and own state | None | Q6 |
+| **U9** Recover management link | Host requests a new one | Queue a new management-link message to the verified address | Old link replaced when the new one is sent | D9, **Q9** |
+| **U10** Resend invitation | Host resends a failed or unsent invitation | Queue a new invitation message | None until sent | D8 |
+
+### Internal system flows
+
+| Flow | Trigger | What it does |
+|---|---|---|
+| **S1** Capacity decision | "Yes" in U3/U4, capacity set | Confirmed if a place is free, otherwise Waitlisted |
+| **S2** Promotion | A place released in U4, capacity set | Earliest waitlisted → Confirmed; records a promotion notice. **The only write to a guest who did not act.** |
+| **S3** Lock check | Every U3/U4 | Refuse if Closed, Cancelled, or started |
+| **S4** Link resolution | Every action | Resolve to one event, or one *(event, guest)*; otherwise one identical refusal |
+| **S5** Send one message | Drain picks a queued message | Mark it *sending*; re-check it is still true; **for invitation and management-link messages only**, generate the link (KD13); hand to the provider; mark the result. **Notices carry no link.** |
+
+### Background flows
+
+| Flow | What happens | Notes |
+|---|---|---|
+| **B1** Event start passes | Nothing is performed. From that moment S3 refuses replies. | A rule, not a process (KD4). |
+| **B2** Outbox drain | A scheduled task inside the application claims a few queued messages and runs S5 on each. | The only autonomous execution in the design (KD3). Its backlog is shown to the host (O1). |
+
+### Failure flows
+
+| # | Situation | Strikes | Handled in |
 |---|---|---|---|
-| **Host** | The person who created the event | Holds the event's management link (D3) | Create, invite, view the dashboard, close, cancel |
-| **Invitee** | A person invited to one event | Holds their own personal link (D3) | Submit and change their own reply only |
-| **System** | The application itself | — | Enforce capacity, promote from the waitlist, lock at start |
+| **X1** | Two "Yes" for the last place | S1 | Concurrency — **the scenario the task requires** |
+| **X2** | Two confirmed guests leave at once | S2 | Concurrency |
+| **X3** | Reply at the start boundary | S3 | Concurrency (KD8) |
+| **X4** | Reply racing a cancel | S3, U6 | Concurrency |
+| **X5** | Retried submission | U3/U4 | Concurrency |
+| **X6** | One guest, two tabs | U4 | D6 |
+| **X7** | Message accepted by the provider but never delivered | S5 | Risk RD-1 |
+| **X8** | Unknown link, or a link from another event | S4 | Trust boundaries |
+| **X9** | Guest forwards their link | S4 | Known gap under N1 |
+| **X10** | Host loses the management link | U1 | D9, Q9 |
+| **X11** | Promoted guest never learns of it | S2 | **Closed by D3**, subject to X7 |
+| **X12** | The drain stalls | B2 | Visible as a growing backlog in U5 |
+| **X13** | A queued message is no longer true when its turn comes | S5 | Skipped (D3) |
+| **X14** | The host's own management-link email never arrives | U1 | Risk RD-5 |
+| **X15** | A cancelled event sends hundreds of notices at once | U6, B2 | Paced by the drain; RD-6 |
 
-The System is listed as an actor deliberately: promotion and locking are things
-the application does **on its own**, without either human asking, and a design
-that leaves them implicit will produce code where nobody owns them.
+---
 
-### W1 — Create Event
+## Invariants *(Step 8)*
 
-- **Actor:** Host. **Precondition:** none — no account is required.
-- **Flow:** Host submits title, description, start date/time, location, and
-  optionally a max-capacity → the event is created → the host is handed the
-  single management link that is their only way back in.
-- **System checks:** start time must be in the future (INV-8); max-capacity, if
-  given, must be a positive number.
-- **Result:** the event exists and accepts replies. Capacity is *not* checked
-  here — there are no replies yet to check it against.
-- **Failure mode:** the host does not save the link. There is no recovery (Q3).
+The tenant is **the event**: under N1 there are no accounts, so the event is the natural unit of isolation.
 
-### W2 — Invite People
+### Business
 
-- **Actor:** Host. **Precondition:** the event exists and is not cancelled.
-- **Flow:** Host supplies one or more email addresses → one invitee record is
-  created per address, each with its own unguessable token → each is handed to
-  delivery to be sent by email (D1).
-- **System checks:** the caller must hold this event's management link. No
-  limit is applied to how many people may be invited (Assumption 3).
-- **Result:** each invitee exists in a Pending state, having not yet replied.
-- **Failure modes:** delivery silently fails and the invitee never learns they
-  were invited, with the host unaware; a retried request creates a duplicate
-  invitee instead of resending to the existing one.
+| # | Invariant | Threatened by | Control |
+|---|---|---|---|
+| **INV-B1** *Capacity* | When a capacity is set, Confirmed guests never exceed it. | X1; Q2 | Count and write under one per-event lock; no capacity-edit path until Q2 |
+| **INV-B2** | No capacity → nobody is ever Waitlisted. | — | Capacity decision skipped entirely |
+| **INV-B3** *Promotion* | A released place with a non-empty waitlist promotes **exactly one** guest — the earliest. | X2 | Promotion inside the same locked, all-or-nothing step as the release |
+| **INV-B4** | A waitlisted guest leaving triggers no promotion. | — | Transition table |
+| **INV-B5** | Only "Yes" occupies a place; leaving Confirmed for No or Maybe releases it. | — | Transition table |
+| **INV-B6** | A waitlisted guest reaches Confirmed only through promotion; repeating "Yes" changes nothing, including position. | — | Transition rule; entered-state time written only on an actual change |
+| **INV-B7** *Lock after start* | Once started, Closed or Cancelled, no reply is created or changed. | X3, X4 | Checked inside the locked step, with "now" read after the lock (KD8) |
+| **INV-B8** | Cancelled is terminal; Closed may only become Cancelled; nothing returns to Open. | — | State guard |
+| **INV-B9** | An event's start time is in the future when it is created. | — | Validation against the same clock as INV-B7 |
+| **INV-B10** | A promotion and its notice exist together or not at all. | Partial failure | Recorded in the same all-or-nothing step |
+| **INV-B11** | A queued message is sent only if it is still true when sent. | X13 | Re-checked by S5 at send time |
+| **INV-B12** | A cancellation and its notices exist together or not at all. | Partial failure | Recorded in the same all-or-nothing step as the cancel |
+| **INV-B13** | A notice never carries or replaces a link. | W1 | Only invitation and management-link messages generate links |
 
-### W3 — Submit First Reply
+### Data integrity
 
-- **Actor:** Invitee, through their own link.
-- **Precondition:** the event is not closed, not cancelled, and has not started.
-- **Flow:** Invitee chooses Yes / No / Maybe → the lock check runs → if the
-  answer is "Yes", the capacity gate runs and decides **Confirmed** or
-  **Waitlisted** → the outcome is written and shown back to the invitee
-  immediately (Goal 5).
-- **System checks:** lock check (INV-4); capacity gate on "Yes" only (D2); the
-  token must resolve to exactly one invitee of exactly one event (INV-5).
-- **Failure modes:** two invitees claim the last remaining place at the same
-  instant; an unknown or foreign token must be refused without revealing
-  whether the event exists.
+| # | Invariant | Control |
+|---|---|---|
+| **INV-D1** | Every guest belongs to exactly one existing event. | Referential constraint in the database |
+| **INV-D2** | Every guest has at most one Reply. | Uniqueness in the database; replies update, never add |
+| **INV-D3** | Every link is unique and cannot be derived from any other. | Cryptographic randomness + uniqueness |
+| **INV-D4** | Every count shown equals the records in that state at that moment. | Counts derived, never stored (KD5) |
+| **INV-D5** | The waitlist has one total order. | Entered-state time plus a unique tie-breaker |
+| **INV-D6** | An email address appears at most once per event. | Uniqueness on *(event, normalised email)* — D5 |
 
-### W4 — Change Reply
+### Authorization
 
-- **Actor:** Invitee, through the same link. **Precondition:** as W3.
-- **Flow:** Invitee submits a different answer → the lock check re-runs → the
-  transition either **releases** a confirmed place (triggering W5) or
-  **requests** one (re-running the capacity gate).
-- **Transitions that release a place:** Confirmed → No, and Confirmed → Maybe.
-- **Transitions that release nothing:** anything starting from Waitlisted,
-  because a waitlisted invitee was never holding a place (Assumption 6).
-- **Failure modes:** the same invitee submitting from two tabs at once; a
-  release and a new "Yes" racing for the same freed place.
+| # | Invariant | Control |
+|---|---|---|
+| **INV-A1** | Only the holder of an event's management link acts as its host — **including viewing status**. | One mandatory check at the Access Gate |
+| **INV-A2** | A guest link affects only that guest's own reply. | Target always derived from the link, never from the request |
+| **INV-A3** | The promoted guest is chosen by the system. | Server-side selection only |
+| **INV-A4** | A refused link reveals nothing — not whether the event exists, nor why. | One identical refusal, in content and in time |
+| **INV-A5** | A guest never sees another guest's email address. *(Anything else a guest may see: Q6.)* | A separate, minimal guest view |
+| **INV-A6** | No invitation can be sent for an event whose host is unverified. | Checked in U2 (D9) |
+| **INV-A7** | At most one link per holder works at any time. | One Link record per holder, replaced in a single change (KD13) |
 
-### W5 — Waitlist Promotion *(System)*
+### Concurrency
 
-- **Actor:** System. **Trigger:** a confirmed place is released by W4.
-- **Flow:** if the waitlist is non-empty, the **earliest** waitlisted invitee
-  (Assumption 1) becomes Confirmed, in the same transaction as the release that
-  freed the place.
-- **System checks:** exactly one invitee is promoted per released place — never
-  zero, never two (INV-3).
-- **Result:** promotion is silent under Assumption 7; the promoted invitee
-  discovers it on their next visit. **This is exactly what Q2 questions.**
-- **Failure modes:** two concurrent releases both select the same waitlisted
-  person; a promotion picks someone belonging to a different event.
+| # | Invariant | Threatened by | Control |
+|---|---|---|---|
+| **INV-C1** | INV-B1 holds under simultaneous "Yes". | X1 | Per-event lock |
+| **INV-C2** | Each released place causes exactly one promotion under simultaneous releases. | X2 | Per-event lock |
+| **INV-C3** | The lock decision and the reply it permits are one step. | X3 | Inside the lock; clock read after it |
+| **INV-C4** | A reply is entirely before or entirely after a close or cancel. | X4 | Close and cancel take the same lock |
+| **INV-C5** | Submitting the same reply twice equals submitting it once. | X5 | Idempotent "set reply to X" |
+| **INV-C6** | A release, its promotion and its notice happen together or not at all. | Partial failure | One transaction |
 
-### W6 — View Dashboard
+*INV-C7 (no overwrite from a stale view) was dropped by D6.*
 
-- **Actor:** Host, through the management link.
-- **Flow:** live counts (confirmed / waitlisted / declined / maybe / pending)
-  and the attendee list are computed from current records on every read.
-- **System checks:** the management link must belong to **this** event. This
-  read is as privileged as any write — it exposes the full guest list with
-  email addresses — and is checked identically.
+### Tenant isolation
 
-### W7 — Close or Cancel
+| # | Invariant | Control |
+|---|---|---|
+| **INV-T1** | No data of one event is reachable through another event's link. | Every lookup scoped by event |
+| **INV-T2** | A link is valid only within the event it was issued for. | Resolution to an *(event, guest)* pair |
+| **INV-T3** | Counting and promotion never involve another event's guests. | Scoped decisions |
 
-- **Actor:** Host. **Precondition:** the event is not already closed/cancelled.
-- **Flow:** **Close** stops further replies while the event still happens;
-  **Cancel** means the event does not happen. Either way, every subsequent RSVP
-  write is refused by the lock check.
-- **Result:** final and irreversible (Assumption 4); affects every invitee at
-  once.
-- **Failure mode:** a reply commits at the same moment the host cancels,
-  consuming a place on an event that no longer exists.
+### Where invariants fall short
 
-### W8 — Lock at Start *(System)*
+- **INV-B1 vs Q2.** Changing capacity below the confirmed count breaks either INV-B1 or a guest's confirmed place. No answer preserves both.
+- **INV-B3 and INV-B10 hold in the data; the room depends on email.** A notice that is sent but never read (X7) leaves a confirmed guest who does not come.
+- **INV-A2 against a forwarded link.** Whoever holds the link *is* the guest, as far as the system can tell (X9).
 
-- **Actor:** System. **Trigger:** the event's start time passing.
-- **Flow:** no job runs. "Locked" is **derived** at the moment of each request
-  by comparing the event's start time against the database's clock, inside the
-  same transaction as the write it guards.
-- **Why derived rather than scheduled:** a scheduled job would need a second
-  always-running process, and would still not be safe on its own — a write that
-  begins before the boundary and commits after it must be refused regardless.
-  Since the check has to exist inside the transaction anyway, the job adds a
-  moving part and buys nothing.
+---
 
-## Invariants *(Step 08)*
-
-Named, so that later sections and any future code review can refer to them
-directly. Each states what must **always** hold, and where it is enforced.
-
-### Business invariants
-
-- **INV-1 — Capacity is never exceeded.** For an event with a max-capacity, the
-  number of Confirmed invitees never exceeds it, at any instant, including
-  during concurrent writes. *Enforced by:* the capacity gate, atomically with
-  the write that would breach it.
-- **INV-2 — Exactly one current reply per invitee.** An invitee has one status,
-  not a history and not two. *Enforced by:* a single mutable field; submitting
-  is an update keyed by the invitee's token, never an insert.
-- **INV-3 — Every released place promotes exactly one person.** If a confirmed
-  place is released while the waitlist is non-empty, exactly one waitlisted
-  invitee — the earliest — becomes Confirmed. Never zero, never two.
-  *Enforced by:* running promotion in the same transaction as the release.
-- **INV-4 — Nothing is writable after lock.** Once the event has started, or
-  has been closed or cancelled, no RSVP may be created or changed. *Enforced
-  by:* the lock check, evaluated against the database clock inside the writing
-  transaction.
-- **INV-5 — A link acts only within its own event.** A token grants access to
-  the one invitee (or the one event) it was issued for. Matching a token
-  somewhere in the system is not sufficient; it must match *within* the event
-  being acted on. *Enforced by:* scoping every query by event.
-- **INV-8 — An event never starts in the past.** At creation, the start time is
-  in the future — otherwise the event is born locked and can never collect a
-  single reply.
-- **INV-9 — No capacity means no waitlist.** If max-capacity is unset, every
-  "Yes" is Confirmed and the waitlist is necessarily empty (Assumption 2).
-
-### Data integrity invariants
-
-- **INV-6 — Tokens are unique and unguessable.** Every token is globally unique
-  (database constraint) and generated from a cryptographic random source —
-  never a sequential identifier, which would make every other invitee's link
-  trivially discoverable.
-- **INV-7 — Every invitee belongs to a real event.** Enforced by a foreign key,
-  not by application code.
-- **INV-10 — Counts are derived, never stored.** The confirmed count is always
-  a count of actual Confirmed records. There is no cached counter column that
-  could drift away from reality.
-
-### Authorization invariants
-
-- **INV-11 — Only the holder of the management link may act as host** — on
-  every host operation, including the dashboard read.
-- **INV-12 — An invitee may only affect their own reply.** The one deliberate
-  exception is promotion (W5), which writes to a *different* invitee — and that
-  invitee is always chosen by the system, never named by the request.
-
-### Tension between invariants
-
-INV-1 and INV-3 pull in opposite directions the moment Q1 is answered: if a
-host lowers capacity below the confirmed count, either INV-1 breaks (the event
-sits over capacity) or an already-confirmed attendee is demoted. There is no
-answer that preserves both. This is precisely why Q1 is recorded as open rather
-than guessed at.
-
-## Architecture *(Step 09)*
-
-The backend is split by **responsibility**, not by technical layer. The reason
-is specific rather than stylistic: the capacity rule is the one piece of logic
-in this system that is genuinely hard to get right, and a layered split would
-spread it across a controller, a service, and a repository, where it becomes
-three places that can each independently be wrong.
+## Architecture *(Step 9)*
 
 ### Components
 
-**EventService** — owns the event's lifecycle and its guest roster.
-Creates events, adds invitees, serves the host dashboard, closes and cancels.
-Every entry point verifies the management link against *this* event (INV-11).
-It never writes an invitee's reply status.
+Each is stated with what breaks without it.
 
-**RsvpEngine** — owns replies, and nothing else owns them.
-This is the only component that reads capacity, compares it, writes a status,
-or promotes from the waitlist. Concretely it contains:
-- the **lock check** — refuses any write to a started, closed, or cancelled
-  event, evaluated against the database clock inside the writing transaction;
-- the **capacity gate** — decides Confirmed or Waitlisted for a "Yes";
-- **promotion** — runs when a confirmed place is released.
+**1. Access Gate** — every request enters here. A management link resolves to exactly one event, a guest link to exactly one *(event, guest)*; anything else receives one identical refusal. The two kinds of link are never interchangeable.
+Two requests carry no link by nature — creating an event (U1) and asking to recover a management link (U9). They enter through the gate's **open path**, which permits only those two actions and never resolves to, reads, or reveals any existing event.
+*Without it:* every action carries its own check, and the first one forgotten — most likely on the host's status read — leaks every guest's email address.
 
-Keeping all three together is deliberate: they must run inside one transaction
-holding one lock, and splitting them across components would make that
-impossible to guarantee.
+**2. Event Management** *(host side)* — create (U1), verify (U8), invite (U2), resend (U10), recover (U9), view status (U5), close or cancel (U6).
+Owns the event, its status, and each guest's identity.
+*Without it:* nothing guarantees an event cannot be reopened, and guest identity has no single writer.
 
-**InviteDelivery** — sends an invitee their link, behind an interface.
-Email is the implementation (D1). The interface exists so that a future channel
-change does not leak into EventService or RsvpEngine — not because another
-channel is planned.
+**3. Reply Engine** *(guest side)* — reply (U3), change (U4), view own standing (U7). Contains the lock check, the capacity decision, promotion and the transition table. **The only component that makes a capacity decision or promotes.**
+Owns each guest's Reply.
+*Without it:* counting, writing and promotion end up in different places, and INV-C1, C2 and C6 cannot hold.
 
-**Persistence** — one PostgreSQL schema (`hero`). It carries the integrity
-invariants directly: the foreign key for INV-7, the unique constraint for
-INV-6, and the row lock that INV-1 and INV-3 depend on.
+**4. Outbox Drain** — the scheduled task inside the application (B2). Claims a few queued messages, re-checks that each is still true, generates a link for invitation and management-link messages only (KD13), hands it to the email provider with a timeout, and records the result.
+Owns every **Link** record and every message's **status**.
+*Without it:* messages are sent inside requests, which fails at the normal batch size, and nothing can send a promotion notice.
+*Note:* an earlier draft removed a delivery component because it owned nothing and contained no logic. This one exists because it now has both.
 
-### Frontend surfaces
+### Dependencies with obligations
 
-Two separate surfaces, not one application with a role switch:
+**PostgreSQL** provides constraints, the authoritative clock, and a per-event locking mechanism. **It does not make anything correct by itself:** correctness depends on every state-changing path *taking* the lock. Exactly two paths do — every reply change (Reply Engine) and every status change (Event Management). A third path added later that does not would silently break INV-C1 to C4.
 
-- **Host Console** — create, invite, dashboard, close/cancel. Talks to
-  EventService.
-- **Invitee Response Page** — shows the event and the invitee's own current
-  status, and submits changes. Talks to RsvpEngine.
+**Email provider** receives every outgoing message. The system can observe whether the provider **accepted** a message — never whether it **arrived**.
 
-The existing placeholder files (`MessageComposer.tsx`, `RecipientTable.tsx`,
-`bulkSendApi.ts`, …) belong to neither and are deleted rather than renamed.
+### Flow boundaries
 
-### Why this shape
+```
+Host Console ──► Access Gate ──► Event Management ──┐
+                                                    ├──► outbox ──► Outbox Drain ──► Email provider
+Guest Page ────► Access Gate ──► Reply Engine ──────┘
 
-Host and invitee separation becomes **structural** rather than a role check
-inside shared code: an invitee request never reaches EventService, and a host
-request never reaches the capacity gate. The two paths cannot accidentally be
-given each other's permissions, because they do not share an entry point.
+         every component ──► PostgreSQL (constraints · per-event lock · clock)
+```
 
-Since the application runs as a single process against a single database
-(Step 05), correctness under concurrency is entirely RsvpEngine's
-responsibility, within one transaction — but it is delegated to the database's
-locking rather than to anything in-process, so it does not silently become
-wrong if this is ever run as more than one instance.
+| Path | Reaches | Never reaches |
+|---|---|---|
+| Host | Event Management | Reply Engine |
+| Guest | Reply Engine | Event Management |
+
+The two paths share only the Access Gate, the outbox, and the per-event lock. A guest cannot reach host capabilities because no route exists — not because a permission check says no.
+
+### Key design choices
+
+| # | Choice | From |
+|---|---|---|
+| **KD1** | Split by who acts — host or guest — with every capacity decision inside one component. | INV-C1 to C6 |
+| **KD2** | Correctness lives in the database: a per-event lock taken by every state change. | T3, F11 |
+| **KD3** | No separate processes. **Exactly one** scheduled task inside the application — the outbox drain — with its backlog visible to the host. *(Revised in Step 15.)* | O1 (corrected), R1, D8 |
+| **KD4** | The lock at start is a **rule** checked per request, not something that fires at start time. KD3 does not license a second scheduled task. | T2, B1 |
+| **KD5** | Derive, don't store: counts, waitlist order, locked-ness. | T2, INV-D4 |
+| **KD6** | One gate for all access. | N1, F9, T1 |
+| **KD7** | Two surfaces with disjoint paths. | INV-A2, A5 |
+| **KD8** | "Now" comes from the database **and is read after the per-event lock is acquired** — never the transaction's start time. *(Corrected in Step 12.)* | T3, INV-B7, INV-B9 |
+| **KD9** | *Replaced by D8.* | — |
+| **KD10** | One outbound path: the outbox. Management links, invitations, promotion notices and cancellation notices all go through it. | D3, D8, D9 |
+| **KD11** | Nothing added for scale — no caching, no replicas. | P1 |
+| **KD12** | Each count has one definition, used by both the capacity decision and the host view. | INV-D4 |
+| **KD13** | **A link is generated at the moment its message is sent; only its protected form is stored.** Notices carry no link (INV-B13). *Proposed in Step 16; not yet confirmed by the problem owner.* | Step 11 vs D8 |
+
+---
 
 ## Data Ownership and State Model *(Step 10)*
 
+### Records
+
+| Record | Source of truth | Written by | Stored | Derived |
+|---|---|---|---|---|
+| **Event** | Event record | Event Management only | Title, description, location, start time, optional capacity, status, host email, whether verified | *Locked* |
+| **Guest** | Guest record | Event Management — **create only** | Event, normalised email | *Pending* = no Reply |
+| **Link** | Link record — one per holder: the event's host, or a guest | **Outbox Drain only**, at send time (KD13) | Holder, protected link | — |
+| **Reply** | Reply record | **Reply Engine only**, inside the per-event lock | Guest, state, the moment the guest entered this state | — |
+| **Outbound message** | Message record | **Created** by the component that owns its cause — Event Management for management links, invitations and cancellation notices; Reply Engine for promotion notices. **Status written only by the drain.** | Kind — management link · invitation · promotion notice · cancellation notice; event; recipient; status: queued · sending · sent · failed · skipped | — |
+
+Event fields other than status have **no edit path**. That is why Q2 cannot yet arise, and why a start time cannot move — by omission, not decision.
+
+A resend (U10) or recovery (U9) **creates a new message** rather than resetting an old one, so the drain remains the only writer of message status.
+
+**Message states:** queued → **sending** (claimed by the drain) → sent · failed · skipped. A message left in *sending* longer than the send timeout — because the drain crashed — returns to *queued*; that is where at-least-once delivery comes from. Whether *failed* is retried automatically is **Q10**.
+
+**Why links are their own record.** Under KD13 a link is created by the drain, at send time. Storing it on the Event or Guest record would give those records a second writer — the exact problem D4 was made to avoid. As a separate record, every record still has exactly one writer, and replacing a link touches nothing else. The Access Gate reads Link records to resolve every request.
+
 ### Event state machine
 
-**Stored status** — three values, two of them terminal:
-
 ```
-                            ┌─── close ───►  CLOSED    (terminal)
-                            │
-     (created) ──►  OPEN ───┤
-                            │
-                            └─── cancel ──► CANCELLED  (terminal)
-```
-
-**Locked-ness is not on this diagram, because it is not a state.** It is a
-predicate evaluated on every request:
-
-```
-     locked  ⇔  status ≠ OPEN   OR   now() ≥ startsAt
-                                     ▲
-                                     └─ the database's clock, read inside
-                                        the same transaction as the write
+                 ┌──── close ────►  CLOSED
+                 │                     │
+  created ──►  OPEN                  cancel
+                 │                     │
+                 │                     ▼
+                 └──── cancel ───►  CANCELLED   (terminal)
 ```
 
-Drawing LOCKED as a box would imply something transitions into it, which is
-exactly the design this rejects (W8).
+**Locked** is not on this diagram because it is not a state. It is a rule: `status ≠ Open` **or** the database clock, read after the lock, has reached the start time.
 
-- **OPEN** — accepts replies. The only state in which RsvpEngine may write.
-- **CLOSED** — the event still happens; no further replies. Final.
-- **CANCELLED** — the event does not happen. Final.
-- **LOCKED** is **not a stored state.** It is computed on every request as:
-  `status ≠ OPEN` **OR** `now() ≥ startsAt`, using the database's clock.
-  Nothing transitions "into" locked, so nothing has to fire at the right moment
-  and nothing can fail to fire.
+### Reply transitions
 
-Both CLOSED and CANCELLED are terminal (Assumption 4). They are kept distinct
-because they mean different things to an invitee looking at their page.
+| From | Trigger | To | Releases a place? |
+|---|---|---|---|
+| *Pending* | Yes — no capacity, or a place free | Confirmed | — |
+| *Pending* | Yes — full | Waitlisted | — |
+| *Pending* | No / Maybe | Declined / Maybe | — |
+| Confirmed | No or Maybe | Declined / Maybe | **Yes → promotion + notice** (D2, D3) |
+| Confirmed | Yes | *unchanged* | — |
+| Waitlisted | No or Maybe | Declined / Maybe | No (A7) |
+| Waitlisted | Yes | *unchanged — position kept* | — (INV-B6) |
+| Waitlisted | *promotion* | Confirmed | **System only** |
+| Declined / Maybe | Yes | Confirmed or Waitlisted | Back through the capacity decision |
+| Declined ↔ Maybe | No / Maybe | the other | No |
+| *any* | *anything, while locked* | *refused* | (INV-B7) |
 
-### RSVP state machine
+**Entered-state time** is written on every actual change of state and never on a no-op. A guest going Waitlisted → Maybe → Yes therefore re-enters at the back — the direct consequence of D2.
 
-An invitee starts at PENDING. Their first reply routes as follows — note that
-"Yes" has **two** possible destinations, decided by the capacity gate:
+### Derived state
 
-```
-                        ┌───────────────────────────┐
-                        │          PENDING          │
-                        │   (invited, no reply yet) │
-                        └──┬─────────┬───────────┬──┘
-                           │         │           │
-                        Yes│       No│      Maybe│
-                           │         │           │
-              ┌────────────┴───┐     │           │
-    capacity  │                │ full│           │
-     available▼                ▼     ▼           ▼
-        ┌───────────┐  ┌────────────┐ ┌──────────┐ ┌─────────┐
-        │ CONFIRMED │  │ WAITLISTED │ │ DECLINED │ │  MAYBE  │
-        └───────────┘  └────────────┘ └──────────┘ └─────────┘
-```
+| Concept | Derived from | Why not stored |
+|---|---|---|
+| Pending | Guest with no Reply | Absence is the fact |
+| Locked | Status + clock + start time | Would need something to set it on time (KD4) |
+| Counts per state | Replies grouped by state | A stored counter drifts (INV-D4) |
+| Waitlist order | Entered-state time + tie-breaker | Stored ranks cannot be redefined (T2) |
+| Places remaining | Capacity − confirmed | Derived from derived values |
+| Message backlog | Queued and failed messages | Shown to the host so the drain's health is visible (O1) |
 
-Afterwards, every transition is governed by the table below. It is the
-authoritative version — the diagram above covers only the first reply.
+### Correctness review
 
-| From | Trigger | To | Releases a place? | Notes |
-|---|---|---|---|---|
-| PENDING | Yes, capacity available | CONFIRMED | — | |
-| PENDING | Yes, capacity full | WAITLISTED | — | |
-| PENDING | No | DECLINED | — | |
-| PENDING | Maybe | MAYBE | — | |
-| CONFIRMED | No | DECLINED | **yes** → triggers W5 | |
-| CONFIRMED | Maybe | MAYBE | **yes** → triggers W5 | Follows from D2 |
-| CONFIRMED | Yes | CONFIRMED | no | No-op |
-| WAITLISTED | No | DECLINED | no | Was holding nothing (A6) |
-| WAITLISTED | Maybe | MAYBE | no | Was holding nothing (A6) |
-| WAITLISTED | Yes | WAITLISTED | no | **No-op — must not re-queue** |
-| WAITLISTED | *promotion* | CONFIRMED | — | **System only** (W5, INV-12) |
-| DECLINED / MAYBE | Yes, capacity available | CONFIRMED | — | Back through the gate |
-| DECLINED / MAYBE | Yes, capacity full | WAITLISTED | — | No place is reserved |
-| DECLINED ↔ MAYBE | No / Maybe | the other | no | |
-| *any* | *anything*, event locked | unchanged | — | Refused (INV-4) |
+| Risk type | Where it arose | How it is closed |
+|---|---|---|
+| **Stale read** | Lock, count, and promotion evaluated before the change | All read inside the per-event lock |
+| **Stale read** *(human)* | Guest page says "open"; it locks before they submit | Write rechecks and refuses with a reason the guest can understand |
+| **Duplicate write** | Retried reply; double-click first reply; batch of 600 retried | Idempotent reply; one Reply per guest; D5 per-address skip |
+| **Conflicting update** | Close vs cancel; a guest declining as she is promoted | Per-event lock orders them — both orders give the right result |
+| **Conflicting update** | One guest, two tabs | Accepted — D6 |
+| **Mutation authority** | Identity vs reply on one guest | D4 — separate records |
+| **Mutation authority** | One count, two places computing it | KD12 — one definition |
+| **Mutation authority** | Message status written by resend and by the drain | Resend creates a new message; only the drain writes status |
+| **Mutation authority** | Links created by the drain, on records owned by Event Management | A separate Link record, written only by the drain |
 
-Rules worth stating separately, because a table makes them easy to skim past:
-
-- **WAITLISTED → CONFIRMED is reachable only by the system** (W5). An invitee
-  cannot promote themselves by submitting "Yes" again; a repeated "Yes" from a
-  waitlisted invitee is a **no-op** and must not re-queue them — neither to the
-  front nor to the back of the line.
-- **Leaving CONFIRMED releases a place** (to DECLINED or MAYBE), and that
-  release triggers promotion in the same transaction.
-- **Leaving WAITLISTED releases nothing** (Assumption 6).
-- **Returning with "Yes"** from DECLINED or MAYBE goes back through the
-  capacity gate like any other "Yes" — the earlier confirmation is not
-  remembered or reserved.
-- Once the event is locked, **every** transition is refused (INV-4).
-
-### Ownership
-
-| Data | Source of truth | Written by | Read by | Risk if this is violated |
-|---|---|---|---|---|
-| Event | Event row | EventService **only** | EventService, RsvpEngine | A status change from the wrong place bypasses the lock check |
-| Invitee identity (email, token) | Invitee row | EventService **only** | all | — |
-| Invitee **status** | Invitee row | RsvpEngine **only** | all | Split ownership of one row: if EventService ever writes status, the capacity gate is bypassed with no error anywhere |
-| Confirmed count | Derived (`COUNT` of CONFIRMED) | nobody | RsvpEngine, dashboard | A cached counter would drift and silently break INV-1 |
-| Waitlist order | Derived (reply timestamp) | nobody | RsvpEngine | Ties are undefined; two promotions could pick the same person |
-| Dashboard | Derived | nobody | Host Console | Stale only if caching is ever added — none exists |
-| "Locked" | Derived (`status`, `now()`) | nobody | RsvpEngine | Storing it would require something to fire at the right moment |
-
-**The one structural weakness here** is that the Invitee row has two writers:
-EventService owns its identity fields, RsvpEngine owns its status. The database
-cannot enforce that split — only code discipline can. It is called out here,
-and again in Step 14, because it is the kind of boundary that erodes quietly:
-a future "resend invitation" feature is exactly the change that would casually
-write `status` from the wrong side.
+---
 
 ## Trust Boundaries and Security Notes *(Step 11)*
 
-### Where untrusted input enters
+Every trust decision rests on possession of a link (N1). There is no session and no second factor.
 
-| Boundary | Credential | What holding it grants |
-|---|---|---|
-| Host Console → EventService | management token in the URL | Full control of one event, including the whole guest list |
-| Invitee Page → RsvpEngine | invitee token in the URL | The ability to read and change one person's reply |
-| InviteDelivery → email vendor | — | The vendor **handles a working credential in transit**, before the invitee ever sees it |
+### Where trust enters
 
-There is no authenticated session anywhere. **Holding the link is the entire
-authorization model** (D3), which makes every one of these boundaries a bearer
--token boundary with no second factor and no revocation.
+| # | Entry | Component · flow | Why it matters here |
+|---|---|---|---|
+| **E1** | Management link | Access Gate → Event Management | Arrives only by email to the verified address (D9) |
+| **E2** | Guest link | Access Gate → Reply Engine | Has passed through the provider and the guest's mail system before the guest sees it |
+| **E3** | **No credential** | Event Management · U1, U9 | Anyone can create an event, and anyone can ask for a management link to be recovered (Q9) |
+| **E4** | Host-authored text — title, description, location | U1 → U7 and every outgoing message | Under E3, text written by a stranger is shown on a page guests trust and in email from this system's address. Always treated as text, never as markup. |
+| **E5** | Email provider | Outbox Drain | Holds every recipient's address **and** a readable, working link in each message |
+| **E6** | Recipient's mail system | Outbound messages | May open links automatically to scan them |
 
-### The cost of putting tokens in URLs
+**Opening a link never changes state.** U7 displays; only an explicit submission reaches U3/U4. Otherwise a mail scanner at E6 would reply on the guest's behalf — and a scanner opening a host's management link would count as verification (U8), which is why verification requires an explicit action on the page, not the page load alone.
 
-This is the direct consequence of D3 and deserves to be stated plainly rather
-than discovered later:
+### How links leak, in this system
 
-- URLs leak through `Referer` headers to any third-party resource a page loads;
-- they are stored in browser history, and on shared machines that is enough;
-- they are commonly written into web-server and proxy access logs in plaintext;
-- and an invitee who forwards their invitation email has handed someone else
-  their identity — there is no way to tell the difference.
+| Path | Status |
+|---|---|
+| Forwarding (X9) | Undetectable under N1 — accepted gap |
+| Automatic scanners (E6) | Harmless only because opening ≠ submitting |
+| Resources loaded by the guest or host page | The page URL **is** the credential; the pages load no third-party resources |
+| Logs | Today only Hibernate `show-sql` logs, printing statements **without bound values**. Adding request-URL logging would change that. |
 
-*Mitigations available within the current scope:* load no third-party resources
-on the invitee page (so there is nothing to leak a `Referer` to), keep tokens
-out of application logs deliberately, and store tokens **hashed at rest** so a
-database read does not yield working credentials. What is **not** available
-without contradicting Non-Goal 1 is expiry, revocation, or reissue.
+### Protected storage — and what it forces
 
-### What must be checked, and where
+Links are stored only in protected form, so reading the database yields no working credential. Because a link must be looked up by its value, the protection is deterministic — safe only because links are long and random.
 
-- **Every** EventService entry point verifies the management token against the
-  specific event being acted on (INV-11) — including the dashboard read.
-- **The dashboard read is as privileged as any write.** It returns every
-  invitee's email address. It is easy to treat a `GET` as harmless; here it is
-  the single largest disclosure in the system.
-- **Every** RsvpEngine entry point resolves the invitee token to exactly one
-  invitee **within** exactly one event (INV-5). Confirming that a token exists
-  somewhere in the table is not the same check and is not sufficient.
-- **A rejected token reveals nothing.** An unknown, expired-looking, or
-  foreign token gets one generic refusal. Distinguishing "no such event" from
-  "wrong event" hands an attacker an oracle for enumerating events.
+This has direct consequences:
+- **A stored link can never be shown or sent again** — only replaced. Resend (U10) and recovery (U9) must issue new links.
+- **The outbox cannot hold a readable link** waiting to be sent. Hence **KD13**: a link is generated at send time.
+- **Even the operator cannot look up a lost link.** Recovery is only ever reissue.
 
-### Per-event isolation
+### Where authorization is enforced
 
-Each event is effectively its own tenant. Two places can break that:
+| Point | Rule |
+|---|---|
+| Access Gate — link kind | A guest link is never accepted where a management link is expected, or the reverse |
+| Access Gate — refusals | Identical for *not found*, *wrong kind* and *wrong event* — including in time, since the three take different paths through S4 |
+| Event Management — U5 | Checked exactly like U6; it changes nothing but returns every guest's email, and is also structurally unreachable from the guest path |
+| Event Management — U2 | Refused while the host is unverified (INV-A6), or once the event is Closed, Cancelled or started |
+| Access Gate — open path | Permits only U1 and U9; never resolves, reads or reveals an existing event |
+| Reply Engine — U3/U4 | The guest changed is always the one S4 resolved |
+| Reply Engine — S2 | The promoted guest is chosen by the system |
+| Reply Engine — lock | "Now" comes from the database, so no request can influence it |
 
-1. **The split-ownership Invitee row** (Step 10) is written by two components.
-   The event-scope check has to be enforced identically in both, or a bug in
-   one exposes one event's invitees through another event's dashboard.
-2. **Promotion writes to a different invitee than the requester** (W5, and the
-   deliberate exception in INV-12). That target must be selected by the system,
-   scoped to the same event — **never** taken from a request parameter, or an
-   invitee could nominate whoever they like for promotion.
+### Where tenant scope matters
 
-### Sensitive data and irreversible operations
+- S4 resolves a link to an *(event, guest)* pair, never to a match anywhere in the database.
+- S1 and S2 count and select within one event. A mis-scoped promotion would move a guest from someone else's event into this one.
+- The per-event lock isolates events from each other — but **within** an event it is shared. Anyone holding one guest link can occupy it with repeated submissions, delaying every other guest and the host's cancel. Low impact at P1 scale; a rate limit at the Access Gate is the only place a control can live.
+- Internal database identifiers never appear in URLs.
 
-- **Invitee email addresses are personal data** with no separate access tier.
-  The full list is exposed by a single dashboard read.
-- **Tokens are credentials.** Store a **deterministic** hash (SHA-256, no
-  per-row salt), not the token itself. A leaked link cannot be revoked, so
-  reducing where working copies exist is the only control available.
-  *The salt matters here:* a token must be **looked up** by its value, so the
-  password-style approach — a unique salt per row — would make lookup
-  impossible without scanning and re-hashing every row. Tokens can afford an
-  unsalted hash precisely because, unlike passwords, they are long and random
-  rather than guessable, so there is no dictionary to precompute.
-- **Close and cancel are irreversible and affect every invitee simultaneously.**
-  They warrant explicit confirmation in the interface, not a bare button.
-- **The capacity-reduction endpoint must not ship while Q1 is open.** Its
-  effect on already-confirmed attendees is undefined, and "undefined" here
-  means quietly revoking a place someone was already promised.
-- **The committed vendor key** (Step 05) is a present exposure, inherited from
-  the upstream template and unfixable from this fork alone. See Step 16.
+### Sensitive data
+
+| Data | Exposed through |
+|---|---|
+| Guest email addresses | U5 only; the provider (E5) |
+| Management link | Email to the verified address |
+| Guest links | Invitation email, and wherever it is forwarded |
+| **Event location and date** | U7 and every invitation — **for a private event this tells a stranger where a party is and when a family is away from home**, including anyone holding a forwarded link |
+| Reply states | U5 |
+| Vendor API key committed to `application.yml` | The repository and its public upstream history. Deleted from configuration under D1; rotation requires the vendor-account owner. |
+
+### Privileged operations
+
+| Operation | Why privileged |
+|---|---|
+| **Cancel** (U6) | The only terminal transition; affects every guest |
+| **Invite** (U2) | Makes this system send email to addresses the caller chooses |
+| **View status** (U5) | Bulk disclosure of personal data |
+| **Recover management link** (U9) | Unauthenticated by nature (E3). A request from a stranger must not be able to invalidate the real host's working link — a constraint on any answer to Q9. |
+| **Promote** (S2) | System only; the one write to a guest who did not act |
+
+### The relay risk (Q8)
+
+U1 (no credential) → U2 → the outbox → email from this system's address. D9 makes each chain attributable to a verified address, so it **can** be limited per host. Until Q8 sets the limit, one verified host can still send without bound — and once the sending address is flagged as spam, **every host's messages stop arriving**, silently.
+
+---
 
 ## Concurrency and Correctness Notes *(Step 12)*
 
-Everything below is enforced with a **pessimistic row lock on the event row**
-(`SELECT … FOR UPDATE`), taken at the start of any transaction that writes an
-RSVP. Alternatives were considered in Step 15.
+There is no queue for ordering state changes. The ordering a queue would provide — *changes to one event happen one at a time* — is provided by the **per-event lock inside a database transaction**.
 
-Why the lock is on the *event* row specifically: capacity is a property of the
-event, and the rule being enforced is `COUNT(confirmed) ≤ capacity`. No unique
-constraint can express a counting rule, and locking individual invitee rows
-does not prevent a *different* invitee row from being inserted or changed
-concurrently. The event row is the smallest thing that covers the whole rule.
+### Units of work
 
-The lock is per-event, so two different events never contend with each other.
+| Unit | Inside, in order | Outside |
+|---|---|---|
+| **Reply** *(U3, U4)* | take per-event lock → read "now" → lock check → capacity decision or release → promotion if needed → write reply(s) → record promotion notice → commit | Nothing. It only *records* a notice; sending happens later. |
+| **Status** *(U6)* | take per-event lock → state guard → write status → on cancel, record cancellation notices → commit | Sending |
+| **Invite** *(U2, U10)* | create guests, skipping existing addresses → queue messages → commit | Sending. **Takes no per-event lock.** |
+| **Send** *(S5, per message)* | mark it *sending* if still queued → re-check it is still true → for invitation and management-link messages, generate the link and store its protected form → hand to provider with a timeout → mark sent / failed / skipped | **Never holds the per-event lock** |
 
----
+**Why the invite unit takes no lock:** an invite racing a cancel can queue messages for an event cancelled a moment earlier. No invariant is broken — and under INV-B11 those messages are skipped at send time.
 
-**C1 — Two "Yes" replies race for the last place.** *(the central case)*
-Both transactions count confirmed attendees, both see one place free, both
-write Confirmed. Capacity is breached and INV-1 is broken — silently, with no
-error anywhere, discovered only when too many people arrive.
-*Control:* the event row lock serialises count-then-write, so the second
-transaction counts **after** the first has committed and is correctly
-waitlisted.
+**Why the link is stored before handoff:** if the handoff fails, the message is marked **failed** and visible to the host, who can resend. Storing it after handoff would risk a guest receiving a link that was never stored — a failure only the guest would ever see.
 
-**C2 — Two released places promote the same person.**
-Two confirmed attendees decline at the same moment. Both transactions look for
-"the earliest waitlisted invitee" and both find the same one. Either that
-person is promoted twice and the second place is silently lost, or the
-promotion write collides.
-*Control:* the same event row lock. Because every RSVP write already holds it
-for the whole transaction, no second promotion can be selecting concurrently —
-so promotion needs no separate lock of its own.
+### Vulnerable areas and controls
 
-**C3 — The lock boundary is crossed mid-transaction.** *(time-of-check /
-time-of-use)*
-A reply is checked while the event is still open, but commits after it has
-started or after the host cancelled it. INV-4 is violated by a write that
-passed a check that was true when it ran.
-*Control:* evaluate lock state from the **database's** `now()` and the event
-row read **inside** the writing transaction — never from the application
-server's clock, and never from a value read before the transaction began.
+| Area | What can go wrong | Control class |
+|---|---|---|
+| **X1** — last place | Both counted a free place | **Per-event lock + transaction** |
+| **X2** — simultaneous releases | Same guest promoted twice | **Per-event lock + transaction** |
+| Release without promotion or notice | Event left under capacity; guest untold | **Transaction** (INV-C6) |
+| **X3** — start boundary | Reply accepted on a stale "now" | **Per-event lock + explicit rule: read "now" after the lock** |
+| **X4** — reply vs cancel | Place taken on a cancelled event | **Per-event lock** shared by both |
+| Close vs cancel from two tabs | Mixed outcome | **Per-event lock + state guard** |
+| Double-click first reply | Two Replies for one guest | **Unique constraint** as backstop; lock makes the second an update |
+| Retried reply | Counted twice | **Idempotency** |
+| Retried "No" after its promotion ran | Second promotion, second notice | **Idempotency via the transition table** — Declined → Declined is a no-op |
+| Repeated "Yes" while waitlisted | Moved to the back | **Explicit rule** on entered-state time |
+| Waitlist tie | "Earliest" names two guests | **Explicit tie-breaker** |
+| Batch of 600 retried | Duplicate guests | **Unique constraint + idempotency** — per-address skip |
+| Resend racing the drain | One status overwrites another | Resend **creates a new message**; only the drain writes status |
+| Drain restarts mid-send | Message sent twice | **At-least-once, accepted** — under KD13 the second carries a newer link; only the newest works |
+| Provider call hangs | All sending stops | **Explicit timeout** on every call |
+| Second application instance | Two drains send the same message | **Claim conditional on queued status** — not needed at one instance (F11) |
+| **X6** — two tabs | Earlier intention wins | **Version check considered and rejected** (D6) |
+| Leaked guest link flooding one event | Other guests and the host's cancel stall | **Rate limit at the Access Gate** |
 
-**C4 — Cancel races a reply.**
-The host cancels while an invitee's "Yes" is in flight. Without serialisation
-the reply can commit against a cancelled event, consuming a place on an event
-that is not happening.
-*Control:* close/cancel takes the same event row lock as RSVP writes, so the
-two serialise against each other rather than interleaving.
+### Correction recorded here
 
-**C5 — A retried submission creates a duplicate.**
-The network drops, the client retries, and a naive implementation inserts a
-second reply for the same person — breaking INV-2, and double-counting them
-against capacity.
-*Control:* submitting is an **update keyed by the invitee's token**, never an
-insert. The operation is idempotent: sending the same answer twice produces the
-same state as sending it once.
-
-**C6 — One invitee, two browser tabs.**
-An invitee opens their link twice and submits different answers. Last write
-wins, which may not be what they actually intended last.
-*Control:* an optimistic version column on the invitee row, so a write based on
-a stale read is refused rather than silently applied. This is the one place
-optimistic control is used, because the conflict is with **yourself** and the
-right answer is to ask, not to serialise.
-
-**C7 — A status change commits but its promotion does not.**
-A confirmed attendee's decline is written, the promotion that should follow
-fails, and the event is left permanently one person under capacity with a
-non-empty waitlist — a state no invariant can detect after the fact.
-*Control:* the release and the promotion it triggers are **one transaction**.
-Both commit or neither does.
-
-**C8 — A retried invitation creates a duplicate invitee.**
-Delivery fails, the operation is retried, and a second invitee record is
-created for the same person — who then holds two links and two places.
-*Control:* retries act on the existing invitee by identity, via a delivery
-status field. "Resend" and "invite" are different operations.
-
-**C9 — If delivery ever becomes asynchronous.**
-Not a problem today, since everything is synchronous. Recorded because it is
-the specific thing that would break first: a queued "place released" event
-processed after a "new Yes" it was meant to precede corrupts the capacity
-count.
-*Control, if that day comes:* partition strictly by event id, so all work for
-one event stays ordered.
+**KD8 was not precise enough.** Some database clock functions return the time the **transaction began**. A reply that starts before the event, waits for the lock, and acquires it after the start would then pass the lock check — X3 reintroduced through the clock. The same would misorder the waitlist. "Now" and entered-state time are therefore read **after** the lock is acquired.
 
 ---
-
-**Deliberately accepted:** the dashboard read takes no lock. It can therefore
-show a count that is a moment stale. This is correct — the alternative is
-blocking replies while a host refreshes their page, and a dashboard that is
-one second behind causes no harm, because no decision is made from it that the
-capacity gate does not re-check at write time.
 
 ## Scalability and Multi-Tenancy Notes *(Step 13)*
 
-### What actually grows
+Figures here are order-of-magnitude reasoning, not measurements.
 
-Four separate axes, which fail in different ways and at different times:
+### Growth axes
 
-1. **Number of events** in the system — the gentlest axis. Events do not
-   interact, and the lock is per-event.
-2. **Invitees per event** — affects dashboard queries and, more sharply,
-   invitation dispatch.
-3. **Burstiness of replies within one event** — the sharpest axis. A reminder
-   goes out and everyone answers within the same few minutes.
-4. **Events reaching their start time at once** — cheap here, precisely
-   because locking is derived rather than scheduled (W8). Nothing has to fire.
-
-### Where it breaks first
-
-- **The per-event row lock serialises every "Yes" for that event.** This is the
-  deliberate price of C1. Other events are unaffected — it is a row lock, not a
-  table lock — but a single popular event's own burst queues behind itself.
-- **Invitation dispatch is inline.** A host inviting 200 people pays for 200
-  outbound vendor calls inside one request. Latency scales linearly with batch
-  size, and a slow vendor makes it worse.
-- **The dashboard is recomputed on every read.** Fine for one host refreshing;
-  multiplied by polling across many live events, it becomes real query load.
-
-### Why this is sufficient now
-
-Guest lists are human-scale. A single Postgres instance, inline dispatch, a
-whole-event row lock, and live-computed aggregates are adequate for the stated
-scope, and every one of them is simpler to verify as correct than its scaled
-alternative. Nothing in the brief indicates otherwise.
-
-### What would trigger a redesign
-
-| Trigger | Change |
+| Axis | What grows |
 |---|---|
-| Lock contention becomes visible on one event | Narrow the lock from the event row to a dedicated capacity counter |
-| Invitation batches grow | Move dispatch to an asynchronous worker or outbox (see Step 15, Alternative C) |
-| Dashboard polling becomes measurable load | Cache with invalidation, or push updates instead of polling |
-| More than one instance is ever run | Nothing — the locking is already in the database, which is why it was put there |
+| Guests per event | Outbox backlog per invitation batch; host view size. **600 is normal** (F15). |
+| Replies in a burst | Reply units queuing on one event's lock |
+| Number of events | Rows; concurrent use of one process and connection pool |
+| Total email sent | Load on one provider account and **one shared sender reputation** |
+| Time | Past events and their guests accumulate; nothing is deleted |
 
-### Noisy neighbours
+### Bottlenecks
 
-Everything shares one database, one connection pool, and one process, with no
-per-event or per-host resource limits. Because invitations are unbounded
-(Assumption 3), **one host can degrade every other event on the instance** —
-by inviting an enormous number of people, or by running one very bursty event.
-At the current single-host scope this is latent rather than active, but it
-becomes real the first time this serves several hosts at once, and it is worth
-knowing that the mitigation is a cap that does not exist today.
+1. **Sending hundreds of messages inside one request** — the original first bottleneck, at the normal event size. **Resolved by D8.**
+2. **Shared sender reputation** — the first cross-tenant bottleneck. Every host sends from the same identity; one host sending to bad addresses, or abusing Q8, degrades delivery for all, silently and slowly.
+3. **Not bottlenecks at this scale:** the per-event lock under a burst (a few fast operations per reply); derived counts over hundreds of rows; one process and one connection pool.
+
+### Multi-tenancy
+
+| Resource | Isolated per event? |
+|---|---|
+| Data | Yes — INV-T1 to T3 |
+| Per-event lock | Yes |
+| Process, connection pool | No — only at far larger scale |
+| Provider quota | No |
+| **Sender reputation** | **No — the most important shared resource** |
+
+Hosts are identified only per event, by a verified address (D9). That is the minimum that makes **per-host limits possible at all** — before D9, a noisy neighbour could not even be attributed.
+
+### Sufficient now vs. later change
+
+| Sufficient now | Why |
+|---|---|
+| Per-event lock; derived state; one PostgreSQL; one process; no caching | Nothing at P1 scale approaches their limits |
+| Correctness in the database (KD2) | Already survives a second instance |
+
+| Trigger | Change required |
+|---|---|
+| Sender reputation degrades, or abuse appears | Set and enforce the Q8 limit; pause the drain (Rollout) |
+| **A second application instance** | The drain's claim must be conditional; any rate limit held in process memory must move to shared storage |
+| Past events accumulate personal data | A retention rule and a deletion path for whole past events — deleting a locked event releases no places, so it does not bypass Reply Engine |
+
+---
 
 ## Risks and Failure Notes *(Step 14)*
 
-### Correctness risks
+Only risks arising from this architecture, these workflows or these assumptions. **Visible?** matters because under O1 there is no monitoring: an invisible failure persists. Risks resolved by later decisions are kept, marked, for traceability.
 
-**R1 — The split-ownership Invitee row erodes silently.**
-*Failure shape:* the capacity gate is bypassed with no error anywhere.
-*Cause:* Step 10 gives one row two writers, and the database cannot enforce the
-split. A future "resend invitation" feature writes `status` from EventService.
-*Note:* worth enforcing at the repository layer rather than by convention,
-because nothing will fail loudly if it is broken.
+### Correctness
 
-**R2 — Waitlist order is inferred, not stored.**
-*Failure shape:* promotion order becomes non-deterministic, and the wrong
-person is promoted.
-*Cause:* FIFO is read from reply timestamps (Assumption 1). Two replies in the
-same instant have no defined order.
-*Note:* acceptable at current scale; the moment ordering has to change — host
-priority, for instance — the query has no rank to work with.
+| ID | Failure | Arises from | Visible? | Status |
+|---|---|---|---|---|
+| **RC-1** | Replies accepted after the event has started | KD8 + KD2: a reply waits for the lock; "now" read at transaction start is stale | ❌ | Open — an implementation rule |
+| **RC-2** | Capacity exceeded, double promotion, reply on a cancelled event | KD2 is an obligation: a future write path that skips the lock | ❌ | Open |
+| **RC-3** | Waitlisted guest silently moved to the back | INV-B6 + D2: entered-state time rule | ❌ | Open — precise rule |
+| **RC-4** | Promotion picks different guests on different occasions | A2: timestamp order needs a tie-breaker | ❌ | Open — precise rule |
+| **RC-5** | Host sees a count the capacity decision never used | Two components computing counts | ❌ | Closed by KD12 |
+| **RC-6** | Host cannot invite anyone after one partial failure | D5 + U2: a duplicate failing the whole batch | ✅ | Closed — per-address skip |
+| **RC-7** | Guests or hosts appear to act without acting | N1 + email: scanners open links (E6) | ❌ | Closed — opening never changes state |
+| **RC-8** | A message sent that is no longer true | D8: time between queuing and sending | ❌ | Closed — INV-B11 |
+| **RC-9** | Two working management links at once | D9 reissue | ❌ | Closed — replacement is one change (KD13) |
 
-**R3 — Q1 gets answered in code rather than in design.**
-*Failure shape:* whoever implements the capacity edit picks one of the three
-behaviours, and the choice — including silently demoting a confirmed
-attendee — becomes permanent without ever being reviewed.
-*Cause:* an open question sitting next to an obvious-looking endpoint.
-*Note:* this is why Step 11 states the endpoint must not ship first.
+### Dependency
 
-**R4 — The derived lock depends on one discipline.**
-*Failure shape:* replies are accepted after the event started.
-*Cause:* one code path reads the application server's clock, or reads the event
-outside the transaction. The design is correct; a single careless call is not.
-*Note:* the failure is invisible in testing unless deliberately tested at the
-boundary.
+| ID | Failure | Arises from | Visible? | Status |
+|---|---|---|---|---|
+| **RD-1** | **Messages never arrive, and nobody knows** | D1: only acceptance is observable | ❌ | **Open — inherent to email** |
+| **RD-2** | Sending stops partway through a batch | Inline sending hitting provider limits | ⚠️ | Closed by D8 — paced |
+| **RD-3** | **Every host's messages start landing in spam** | D1 + E3 + one shared sending identity | ❌ | **Controllable, not controlled** — Q8 limit undecided |
+| **RD-4** | Working credentials for every recipient exposed together | N1 + D1: each message carries a readable link | ❌ | Open — outside this system |
+| **RD-5** | **Host never receives their management link** | D9: host onboarding depends on email | ⚠️ Host sees nothing arrive | Open — U9 recovery is defined, but its entry point (Q9) is open |
+| **RD-6** | A cancelled large event sends hundreds of notices at once from the shared identity | D10 | ❌ | Paced by the drain; adds to RD-3 |
 
-### Dependency risks
+### Operational
 
-**R5 — A live vendor key is committed in the repository.**
-*Failure shape:* an external account is usable by anyone who reads the repo.
-*Cause:* `application.yml` carries the key as a default value.
-*Note:* **this predates this fork.** The upstream template is public, so the
-key is already exposed and sits in this fork's history too. Rotation requires
-vendor-account access that this fork's owner does not have. What is actionable
-here is removing it from this fork's tracked files and reporting it upstream so
-whoever owns the account can rotate it. See Step 16.
+| ID | Failure | Arises from | Visible? | Status |
+|---|---|---|---|---|
+| **RO-1** | Host misled about whether invitations were sent | Inline sending outlasting the request | ⚠️ | Closed by D8 |
+| **RO-2** | Unknown guests never invited; retry skips them | Crash mid-loop + D5 | ❌ | Closed by D8 — progress is data |
+| **RO-5** | Host permanently locked out, and no one can help | N1 + protected storage | ✅ | **Partly closed** — D9 defines reissue, but its entry point (Q9) is still open |
+| **RO-6** | One event's guests and host stall | KD2 + one leaked guest link | ✅ | Open — rate limit at the Access Gate |
+| **RO-7** | Drain stalls; nothing is sent | B2 | ⚠️ Only in the host's backlog | Open — visible only if the host looks |
+| **RO-8** | A stranger invalidates a real host's management link | U9 is unauthenticated | ✅ | Open — a constraint on Q9 |
+| **RO-9** | The host's real total mixes the system's count with guests handled by phone | D12 | ✅ to the host | Accepted |
 
-**R6 — Invitation delivery has no fallback and no visibility.**
-*Failure shape:* an invitee never learns they were invited, and the host never
-learns they did not.
-*Cause:* a single provider, dispatched inline, with no retry or status.
-*Note:* combined with Q2 (silent promotion), a person can be invited *and*
-promoted without ever being told either.
+### Assumption failures
 
-**R7 — One database, no backup story.**
-*Failure shape:* total loss of every event and reply.
-*Cause:* no backup, no recovery procedure, and nothing in the scaffold about
-either.
-*Note:* acceptable for a local exercise; disqualifying for anything real.
-
-### Operational risks
-
-**R8 — Nothing is monitored.**
-*Failure shape:* R6 happens and is never noticed.
-*Cause:* no logging beyond Hibernate's SQL output, no alerting.
-
-**R9 — Nothing restarts a crashed process.**
-*Failure shape:* the backend dies mid-event and replies stop being accepted;
-invitees see a broken page and give up.
-*Cause:* `start.ps1` launches two processes and supervises neither.
-
-**R10 — Credentials are hardcoded for local development.**
-*Failure shape:* an exposed database the moment this runs anywhere but
-localhost.
-*Cause:* `postgres` / `1234` in `application.yml` — a fact, not a placeholder.
-
-### If an assumption turns out to be wrong
-
-| # | Assumption | What breaks |
+| If wrong… | What breaks | Rework |
 |---|---|---|
-| R11 | D1: email is the channel | The invitee model and delivery both need rework, not an edit |
-| R12 | D2: only "Yes" consumes capacity | The capacity gate's core rule changes, not just a filter |
-| R13 | A1: the waitlist is FIFO | Promotion needs a real ranking model (R2) |
-| R14 | A3: invitations are unbounded | New validation in two components that have none |
-| R15 | A5: links are durable | The whole capability model needs expiry and reissue, which it has no place for |
-| R16 | A7: promotion is silent | Delivery stops being invite-only and becomes part of the reply flow (Q2) |
+| **F15** — most hosts set no capacity | Q2 and the waitlist race move to the main path | Large |
+| **D3** — promoted guests read email in time | A notice read too late; the chair is empty, though the system told them | Small — accepted |
+| **A8** — invitations independent of capacity | Adds pressure on Q8 and RD-3 | Small |
+| **N1** — no identity beyond a verified host email | Every identity-dependent need returns here | Largest in the design |
+| **D2** — losing a place on "Maybe" is acceptable | Guests feel punished for hesitating | Medium |
+| **A2** — first-in-first-out | Host wants priority guests | Medium |
+| **A6** — links durable until replaced | Expiry becomes core | Medium |
+| **A3** — no capacity, no waitlist | The primary path inherits unneeded machinery | Small |
+| **P1** — human-scale events | "Later" changes in Step 13 become "now" | Medium |
+| **D11** — guests accept that close is final | Declines after close arrive by phone; the count is overstated | Small |
+| **D12** — few guests lack their own email | If many do, much of G1 is manual again | Medium |
+
+### Top risks after all decisions
+
+| Rank | Risk | Why |
+|---|---|---|
+| 1 | **RD-1** (and **RD-5**) | Undetectable by design — now reaching hosts too |
+| 2 | **RD-3** | One sender identity shared by every host; the limit that would control it is undecided |
+| 3 | **RC-1** | One small implementation detail silently reverses a core guarantee |
+| 4 | **RC-2** | The lock is an obligation, not a structure |
+| 5 | **RO-7** | The drain's failure is visible only to a host who happens to look |
+
+---
 
 ## Alternatives and Tradeoffs *(Step 15)*
 
-### Alternative A — Optimistic concurrency instead of a row lock
+Only directions a strong senior engineer would put on the table, aimed at the weakest points found in Step 14: **how messages are sent**, and **the absence of host identity**.
 
-Run the capacity gate at Postgres `SERIALIZABLE` isolation and retry on
-serialization failure, rather than taking `SELECT … FOR UPDATE`.
+### Directions compared
 
-*In its favour:* correctness is equivalent — the database detects C1 and C2
-rather than the application preventing them — with no lock-ordering code to get
-wrong, and no risk of a lock being forgotten on some path.
-*Against:* it trades a predictable queue for an unpredictable failure mode.
-Under a burst on one event, serialization aborts can thrash, and every caller
-needs retry logic that is itself easy to get wrong. It is also harder for a
-reviewer to confirm by reading — correctness lives in an isolation level, not
-in a visible line of code.
-**Rejected**, because at this scale legibility is worth more than throughput.
-Worth revisiting under the lock-contention trigger in Step 13.
+| | **P** original | **A** outbox, in-app | **D** provider batch | **B** host-driven batches | **C** verified host email |
+|---|---|---|---|---|---|
+| **How** | Send each message inside the host's request | Queue in the same transaction; a scheduled task in the application sends | Hand the provider one batch request; results reported back asynchronously | The host's open page requests one small batch at a time | Management link sent to the host's address; reissued there |
+| **Correctness** | Send-after-commit is a rule to remember | **Send-after-commit is structural** | Depends on handling asynchronous results | Progress is data | Adds a replacement that must be one change |
+| **Complexity** | Lowest | Moderate | **Low** | Moderate | Moderate |
+| **Operational burden** | Falls on the host | Low — backlog visible | Low, plus an inbound callback endpoint (a new trust boundary) | None | None |
+| **Scalability** | Fails at normal size | **Best** | Good, within provider batch limits | Only while the host keeps the page open | Enables per-host fairness |
+| **Changeability** | Poor | **Best** — every message kind attaches here | Tied to one provider | Medium | High |
+| **Continues without the host** | — | ✓ | ✓ | ✗ | — |
+| **Can announce promotions** | ✗ | **✓** | ✗ | ✗ | — |
+| **Rests on an unverified fact** | — | — | **Yes — no provider is chosen** (T4) | — | — |
 
-### Alternative B — An append-only reply log instead of a mutable status
+**Chosen: A + C** (D8, D9).
+- **A over B.** B's only advantage — no autonomous execution — rested on an over-broad reading of O1. With O1 corrected, A is better on every other axis and is the only direction that could announce promotions (which D3 then adopted).
+- **A over D.** D is simpler *if* the provider supports it — which is not yet a fact.
+- **C** is independent of the sending choice, and is the smallest change that makes Q4 and Q8 answerable.
 
-Make `RsvpEvent` the source of truth and treat the current status as a
-projection, with an explicit `position` column for waitlist order.
+### Considered, not developed
 
-*In its favour:* it fixes R2 outright — ordering becomes explicit and
-reorderable — and gives a real audit trail when someone insists they replied
-"Yes".
-*Against:* a second table and a dual write on every change, to support
-reporting and reordering that appear in neither the Goals nor the brief.
-**Rejected as premature.** Noted because R2 is the risk that would justify
-revisiting it.
+| Direction | Why a senior would consider it | Why set aside |
+|---|---|---|
+| Serialisable isolation with retry instead of the per-event lock | Equal correctness without explicit locking | Addresses none of the top risks; harder to verify by reading; retries thrash under a burst |
+| Stored confirmed count with a database check constraint | Capacity enforced in one atomic increment | Every reply path must keep it in sync (INV-D4 drift), and promotion still needs a locked selection — two mechanisms instead of one |
+| A scheduled job that locks events at start time | The obvious model of "closes at 18:00" | The in-step check is needed regardless (KD4) |
+| Third-party sign-in for hosts | Stronger identity, no email round-trip | Excludes hosts without that provider; heavier than the problem needs |
 
-### Alternative C — An outbox for delivery instead of inline dispatch
+### Tradeoffs accepted
 
-Write an outbox record in the same transaction as the invitation, and have a
-background worker perform delivery.
+| Chose | Over | Paid for with |
+|---|---|---|
+| A per-event lock | Optimistic retry | Contention within one busy event |
+| Derived state | Stored state | Recomputation on every read; ordering depends on a precise timestamp rule |
+| One current reply per guest | A reply history | No audit trail if a guest disputes an outcome |
+| Capability links | Accounts | Links that can be forwarded (X9) and cannot be revoked except by replacement |
+| One in-application scheduled task | No autonomous execution | A drain whose stall is visible only in the host's view (RO-7) |
+| Releasing a place on "Maybe" (D2) | Holding it for the hesitant | Perceived unfairness to guests who are unsure |
+| Last write wins between tabs (D6) | A version check | A guest's earlier intention can win |
+| No capacity editing until Q2 | Shipping an obvious feature | Hosts cannot change capacity at all |
+| Close is final, including declines (D11) | Allowing declines after close | After close, the count can only be too high |
+| Guests without email outside the system (D12) | Host-entered replies | Part of the count stays manual |
 
-*In its favour:* this is the strongest of the rejected alternatives. It fixes
-R6 directly — delivery gets a status the host can see and a place to retry
-from — and removes the batch-size latency bottleneck in Step 13.
-*Against:* one more always-running process, on top of a launcher that already
-supervises nothing (R9). Today that trades a visible failure for an invisible
-one.
-**Rejected for now, not on merit** but on operational cost. It is the first
-thing to build if delivery reliability matters, and the first thing to build if
-Q2 is answered "notify", because that answer makes delivery an ongoing concern
-rather than a one-time one.
-
-### Alternative D — Host accounts instead of capability links
-
-*In its favour:* answers Q3 completely, makes revocation possible, and removes
-the entire class of URL-leak problems in Step 11.
-*Against:* an authentication system built from nothing — the scaffold has no
-security starter — for a single-host exercise.
-**Rejected** as Non-Goal 1. It is, however, the honest answer to Q3, and this
-design should not pretend the capability model solves what it merely avoids.
-
-### Alternative E — A scheduled job to lock events at start time
-
-**Rejected** for the reason given in W8: the in-transaction check is required
-for correctness regardless, so the job is a second moving part that buys
-nothing. Recorded here because it is the obvious first instinct, and the reason
-it is wrong is not obvious.
-
-### The tradeoffs actually accepted
-
-- **Pessimistic locking over optimistic retries** — correctness verifiable by
-  reading the code, paid for with contention on a single busy event.
-- **Derived state over stored state** (counts, waitlist order, locked-ness) —
-  nothing can drift out of sync, paid for with recomputation on every read and
-  an implicit ordering rule (R2).
-- **One mutable status over an event log** — half the writes and no projection
-  to keep correct, paid for with no audit trail and fragile ordering.
-- **Inline delivery over an outbox** — no extra process to supervise, paid for
-  with invisible delivery failures (R6) and latency that grows with batch size.
-- **Capability links over accounts** — no auth system to build, paid for with
-  leaks that cannot be revoked and a host who can lose their event permanently.
-- **Single-instance assumptions** — the simplest thing that works, paid for
-  with a scale-out story that is untested. The locking lives in the database
-  specifically so that this particular bill stays small.
-
-Every one of these trades operational capability for legibility and for less
-code. That is the right trade for a system whose hardest requirement is a
-counting rule that must never be wrong — and the wrong trade for one that has
-to be reliable in production, which this is not yet.
+---
 
 ## Rollout and Migration Notes *(Step 16)*
 
-There is no deployed previous version, so most of what this section normally
-covers — backward compatibility, phased traffic, coexistence with an old
-release — does not apply. What remains is sequencing and a small number of
-things that are true regardless.
+A greenfield feature on an empty scaffold: no previous version and no data to migrate. What matters instead is **what becomes permanent the moment the first email is sent.**
 
-### Due now, independent of whether implementation happens
+### Release sequence, with exit conditions
 
-**Remove the vendor key from this fork's tracked files** (R5) and report the
-exposure to whoever maintains the upstream template, since only they can rotate
-it. Removing it here does not erase it from git history — in this fork or in
-the public upstream — so the report is the part that actually matters. The
-`wasender` block goes entirely, per D1; it should not be kept "just disabled",
-because a disabled path with live-shaped configuration is exactly the exposure.
+**Stage 0 — Scaffold cleanup**
+- Delete the `wasender` block from `application.yml` (D1).
+- Delete `MessageComposer.tsx`, `RecipientTable.tsx`, `ResultsTable.tsx`, `FileUpload.tsx`, `bulkSendApi.ts` and `types.ts` — empty files left from an unrelated bulk-messaging tool.
+- Report the committed vendor key to the owner of `RamiY123/Xperience-Task-1-2026-04`. Deleting it here does not remove it from history.
 
-**Delete the placeholder frontend files** from the unrelated application
-(Step 05). They are empty, so nothing breaks, and their names actively mislead
-a reviewer about what this codebase is.
+**Stage 1 — Reply Engine, with no user interface.** Built first because every failure it can have is silent. *Exits when:*
+- Capacity 1, twenty simultaneous "Yes" → exactly one Confirmed, nineteen Waitlisted in admission order (X1).
+- Two Confirmed guests leave at once with two waitlisted → each promoted exactly once, each with one notice (X2, INV-B10).
+- A reply whose transaction begins before the start but acquires the lock after it → refused (RC-1).
+- Replies submitted during a cancel → none recorded after it (X4).
+- A waitlisted guest repeating "Yes" → same position (INV-B6).
 
-### Build order, if implementation is attempted
+**Stages 2 and 3 — Event Management and the Outbox Drain, released together.** They cannot be released separately: under D9 a host receives their management link *only* through the drain.
+⚠️ **Gate: not released until the Q8 limit is chosen.** Otherwise the first release is an open mail relay. *Exits when:*
+- `Dana@x.com` then `dana@x.com` → one guest (D5).
+- A 600-address batch submitted twice → 600 guests.
+- No invitation can be queued before the host has verified (INV-A6).
+- A guest link at a host action, and a management link at a guest action → identical refusals.
+- Drain paused → the backlog grows visibly; nothing is lost.
+- One provider call hangs → it times out; the rest keep moving.
+- Application killed mid-backlog → sending resumes; at most one duplicate.
+- A failed invitation resent → the previous link stops working (KD13).
 
-1. **The capacity gate and promotion first, in isolation.** Before any
-   controller, before any UI. Exercise them with a script that fires concurrent
-   "Yes" replies at one test event and asserts INV-1 and INV-3 hold. This is
-   the highest-risk code in the design and the only part whose failure stays
-   silent until a real event overbooks — C1 and C2 cannot be found by clicking
-   through a browser.
-2. **The lock check next**, tested deliberately at the boundary (R4) —
-   including a write that begins before the start time and commits after it.
-3. **Then the endpoints**, then the two frontend surfaces.
-4. **Not the capacity-reduction endpoint.** It stays unbuilt until Q1 is
-   answered (Step 11).
+**Stage 4 — Promotion and cancellation notices** (D3, D10). *Exits when:*
+- Promoted, then declined before the notice is sent → notice skipped.
+- Event cancelled after a promotion, before its notice → notice skipped.
+- A promotion notice is sent → the guest's original invitation link still works (INV-B13).
+- An event with 400 invited guests is cancelled → 400 cancellation notices, paced; none carries a link; every existing link still opens and shows *cancelled*.
 
-### Schema evolution
+**Not shipped:** capacity editing, until Q2 is answered.
 
-`ddl-auto: update` is additive-only with no migration tool and no rollback
-(Step 05). Practically:
+### Fixed from the first email
 
-- every new column must be nullable or have a default, because there is no
-  backfill step;
-- a column cannot be renamed — only added and left behind;
-- the invitee's contact field can be modelled directly as an email column now
-  that D1 is settled, with no channel-agnostic hedging;
-- **tokens are stored hashed from the first version** (Step 11). Retrofitting
-  that later is not an additive change — it invalidates every link already
-  sent, and under Assumption 5 those links are the only way anyone gets back in.
+| What | Why it cannot change later |
+|---|---|
+| The URL shape of guest and host links | Every sent message contains one, and they stay valid until replaced (A6) |
+| How links are protected in storage | Changing it cannot convert existing links — only invalidate them |
+| Email normalisation and uniqueness per event | `ddl-auto` creates constraints once; adding one later **fails if existing rows already violate it** |
 
-### No feature flags exist
+### Flags
 
-There is no flagging mechanism in the stack. Gating unfinished work therefore
-means **not merging it**, not merging it behind a toggle. This applies
-specifically to the Q1 endpoint.
+No flag mechanism exists; capacity editing is held back by not shipping it. **One switch belongs in the first release: pausing the drain without redeploying** — the immediate response to RD-3. Because queued messages simply wait, pausing loses nothing.
 
-### Operating it
+### Rollback
 
-Do not restart the application during a reply burst — for example immediately
-after invitations go out. There is no graceful shutdown and no failover (R9),
-so an in-flight capacity-gate transaction is simply dropped, and the invitee
-sees a failure with no indication of whether their reply was recorded.
+| Rollback | Result |
+|---|---|
+| Code, after the message records and host-verification fields exist | Safe — older code ignores them |
+| **Any version that resolves links differently** | ❌ **Breaks every message already delivered.** Emails cannot be recalled. |
+| A version predating KD13, with queued messages waiting | ❌ The older drain expects a link that was never stored |
+| Past a promotion whose notice is still queued | Safe — skipped if no longer true (INV-B11) |
+
+### Operationally sensitive
+
+- **The worst first event is the normal one.** A 600-guest wedding (F15) from a sending identity with no reputation looks like spam. The drain's pace starts low; the first real events should be small.
+- **The drain cannot tell a test from a wedding.** Real addresses used while verifying Stages 2–3 receive real email and spend the reputation every future host shares.
+- **A duplicate after a restart carries a different link** (KD13). Only the newest works; the message text should say so.
+
+---
 
 ## Pre-Review Weakness Check *(Step 18)*
 
-This section attacks the document above. Everything listed here is a weakness
-the author found before a reviewer did, which is the point of the step — and it
-is deliberately not hidden by being written last.
+The draft was read end to end, looking only for sections that were vague, assumption-heavy, structurally incomplete, or under-argued. Fifteen weaknesses (W1–W15) were found. This section records what happened to each, so a reviewer starts from what is **known** to be weak rather than rediscovering it.
 
-### Contradictions found and fixed
+### Found and fixed
 
-**"Store tokens hashed the way a password is stored" was wrong.**
-Step 11 originally said tokens should be hashed like passwords. Passwords are
-hashed with a unique salt per row, and a salted hash **cannot be looked up** —
-you would have to read and re-hash every row to find one token. Since the
-entire access model depends on looking an invitee up *by* their token, that
-advice would have made the system unimplementable as designed. Corrected to a
-deterministic unsalted hash, with the reasoning for why a token can afford what
-a password cannot. **Recorded rather than silently edited**, because "follow
-password practice" is a plausible-sounding instruction that a reviewer might
-well have repeated back approvingly.
-
-### Weaknesses still present
-
-**W-A — "Maybe" and "No" are behaviourally identical.**
-In this design, both release a confirmed place, neither consumes one, and
-neither affects promotion order. The only difference is the word on the host's
-dashboard. Either MAYBE is a display label rather than a state — in which case
-the state machine in Step 10 is more complicated than it needs to be — or it
-should do something distinct, which would reopen D2. **The design has not
-decided which**, and the state machine currently implies more meaning than the
-rules deliver.
-
-**W-B — Goal 5 promises more than the design delivers.**
-Goal 5 says the invitee "sees it change if they are later promoted." Assumption
-7 says promotion is silent. These are only compatible under a generous reading
-where "sees" means "would see, on returning to their link". A waitlisted person
-with no reason to return will not see anything, so the promotion machinery can
-run perfectly and still fail at its actual purpose. **Q2 is filed as an open
-question, but this is arguably a design hole rather than a question** —
-the strongest single objection a reviewer could raise, and the document should
-not be read as having answered it.
-
-**W-C — Two different concurrency mechanisms, with the interaction
-unspecified.**
-Almost everything is serialised by a pessimistic event row lock (C1–C4, C7),
-but C6 introduces an optimistic version column on the invitee row. The
-reasoning for each is sound in isolation; what is **not** specified is how they
-interact — specifically, whether a version conflict inside a transaction
-already holding the event lock rolls back the promotion that transaction may
-have performed. It should, by C7, but the document does not say so, and the two
-mechanisms were reasoned about separately rather than together.
-
-**W-D — The Invitee row's split ownership is named but not solved.**
-Step 10 and R1 both flag it; neither fixes it. The honest position is that this
-design accepts a structural weakness because the alternative — splitting reply
-status into its own table — was never seriously costed. **It should have been,
-and was not.**
-
-**W-E — Q1 is narrower than the problem it points at.**
-Q1 asks what happens when a host *lowers* capacity below the confirmed count.
-The same conflict arises when a host *adds* a capacity to an event that
-previously had none (INV-9) and already has more confirmed attendees than the
-new limit. That case is not mentioned anywhere, and it is reachable by an
-ordinary host action.
-
-**W-F — The invitee's own view is never specified.**
-The document defines in detail what the *host* sees (W6) and says nothing about
-what the *invitee* page shows beyond their own status. Does a waitlisted person
-see their position in the queue? The total number of attendees? Other guests'
-names? These are privacy decisions with real consequences, and the design is
-silent on all of them — an omission, not a deliberate non-goal.
-
-**W-G — No rate limiting anywhere.**
-Tokens are unguessable (INV-6), which makes brute force impractical rather than
-impossible, and nothing in the design limits how fast tokens can be tried or
-how many invitations can be dispatched. Step 13 notes that unbounded
-invitations are a noisy-neighbour risk; nothing mitigates it.
-
-**W-H — No failure-response contract.**
-The design states repeatedly that operations are "refused" — by the lock check,
-by the capacity gate, by an invalid token — without ever defining what a
-refusal looks like to a caller. Step 11 requires that refusals not distinguish
-between causes, which is a *constraint* on the contract; the contract itself
-does not exist. Two implementers would produce two different APIs from this
-document.
-
-**W-I — The testing strategy is one sentence.**
-Step 16 says to exercise the capacity gate concurrently before building
-anything else, which is the right instinct, but there is no statement of what
-"correct" looks like as an assertion, and no mention of testing anywhere else.
-For a system whose central requirement is a counting rule that must never be
-wrong, that is thin.
-
-### Where this design is weakest, stated plainly
-
-If a reviewer reads only one thing here: **the concurrency treatment is the
-strongest part of this document and the delivery/notification treatment is the
-weakest.** C1–C9 are worked through carefully with a mechanism chosen for
-stated reasons. Against that, whether anyone is ever *told* anything — invited,
-waitlisted, promoted — rests on one unexamined assumption (A7), one open
-question (Q2), one risk with no mitigation (R6), and an alternative that was
-rejected on operational cost rather than merit (Alternative C). A system that
-allocates places perfectly and never tells anyone is not solving the problem in
-the Problem Statement.
-
-### Self-assessment against the Definition of Success
-
-| Criterion | Where | Honest assessment |
+| # | Weakness | Fix |
 |---|---|---|
-| Clear problem statement | Step 03 | Covered, both sides |
-| Bounded scope, explicit non-goals | Step 04 | Eight non-goals, each with a reason |
-| Assumptions visible, separated from facts | Step 06 | Facts, decisions, assumptions, and open questions are four distinct lists |
-| Explicit workflows for all key actors | Step 07 | Eight, including the two the system performs unprompted |
-| Named invariants | Step 08 | Twelve, with the INV-1/INV-3 tension stated |
-| Real architecture boundaries | Step 09 | Host and invitee paths are structurally separate |
-| Explicit state ownership | Step 10 | Two state machines and an ownership table — weakened by W-D |
-| Trust / concurrency / scale treatment | Steps 11–13 | Concurrency strong; trust adequate; scale is the least developed |
-| Visible risks and tradeoffs | Steps 14–15 | Sixteen risks, five alternatives, six accepted tradeoffs |
-| Open questions listed | Step 06, and W-A/W-E/W-F above | Three named — plus nine weaknesses this section adds |
+| **W1** | S5 generated a link for **every** message, so a promotion notice silently replaced the guest's working invitation link — a direct contradiction between D3 and KD13. | Only invitation and management-link messages generate links. Notices carry none (INV-B13). |
+| **W2** | The Access Gate was defined as "a link resolves, or the request is refused" — which excluded U1 and U9, the two flows that have no link. | The gate has an explicit **open path** that permits only U1 and U9 and never reveals an existing event. |
+| **W3** | The message state machine had no *in-progress* state, so crash recovery and claiming could not be expressed. | *sending* added; a message stuck in it past the send timeout returns to *queued*. **Retry policy is not fixed — it is Q10.** |
+| **W6** | U2 did not say whether a Closed, Cancelled or started event can receive invitations. | Refused. An invitation exists only to allow a reply, and none is possible then. |
+| **W10** | RO-5 was marked *closed* by D9, whose only entry point (Q9) is open. | Marked **partly closed**; RD-5 reworded the same way. |
+| **W13** | F14 and F15 were labelled facts but come from one stakeholder. | Marked as stakeholder input, with the weight F15 carries stated. |
+| **W14** | The lock rule silently assumed the start time is an absolute instant; Q5 was treated as a wording detail. | Stated explicitly; Q5 now names what depends on it — the correctness of G6 and INV-B7. |
+
+### Found and decided by the problem owner
+
+| # | Weakness | Decision |
+|---|---|---|
+| **W5** | Cancellation was silent — the reasoning that reversed D3 applied even more strongly here. | **D10** — guests are told. |
+| **W7** | Close blocks declines, so after close the count can only drift upward. | **D11** — kept as the brief defines it; the cost is recorded, not hidden. |
+| **W8** | One guest = one email address, so people without their own address could not be counted. | **D12** — outside the system; the host handles them by phone. G1's scope is narrowed to match. |
+
+### Remaining — known, not resolved
+
+| # | Weakness | Why it remains |
+|---|---|---|
+| **W4** | **No event field can be edited.** A wrong date or venue means cancel, recreate, and re-invite everyone. | Editing the start time moves the lock boundary, and editing capacity is Q2. Neither has been designed. |
+| **W9** | **A verified address costs nothing to obtain.** Per-host limits keyed by address are weak against a determined abuser using fresh addresses. | No stronger identity fits N1 as it stands. |
+| **W11** | **The Access Gate rate limit is named three times and defined nowhere** — no key, no window, no response when it is exceeded. | Not designed. |
+| **W12** | **Pacing and the Q8 limit have no stated basis.** At minimum, the limit must exceed the normal 600-guest event (F15), and the response to a batch over the limit is undefined. | Depends on provider limits not yet known (T4). |
+| **W15** | **KD13 is still unconfirmed** — yet the Link record, S5, INV-A7, INV-B13, RC-9 and two rollback rows rest on it. | Awaiting the problem owner. |
+
+Open questions still standing: **Q2, Q5, Q6, Q8, Q9, Q10.**
 
 ### What a reviewer should push on first
 
-1. **W-B** — is silent promotion acceptable at all, or does it defeat the
-   feature?
-2. **W-A** — does "Maybe" earn its place as a state?
-3. **W-C** — do the two concurrency mechanisms compose correctly?
-4. **Q1 together with W-E** — capacity changes are the one place where two
-   invariants provably cannot both hold, and the answer is still missing.
+1. **W15 / KD13** — the most weight resting on the least settled decision.
+2. **Q8 with W9 and W12** — the release gate has no number, no basis for one, and a control that a fresh address defeats.
+3. **W4** — the absence of any edit path will surface in the first real use.
+4. **D11** — whether "final" should really stop a guest from saying they can't come.
+5. **Q9** — host recovery is designed but has no way in.
+
+### Where the design stands
+
+**Strongest:** the core inside the database — concurrency (X1–X4 under one per-event lock), derived rather than stored state, one writer per record, and invariants tied to explicit controls.
+
+**Weakest:** the edges where the system meets the world — email that may never arrive (RD-1), a shared sender reputation with an undecided limit (RD-3, Q8), identity that stops at an unverifiable address (W9), and host recovery with no entry point (Q9).
