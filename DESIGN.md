@@ -901,7 +901,7 @@ A greenfield feature on an empty scaffold: no previous version and no data to mi
 - A promotion notice is sent → the guest's original invitation link still works (INV-B13).
 - An event with 400 invited guests is cancelled → 400 cancellation notices, paced; none carries a link; every existing link still opens and shows *cancelled*.
 
-**Not shipped:** capacity editing, until Q2 is answered.
+**Not shipped:** capacity editing, until Q2 is answered; the management-link recovery entry point (U9), until Q9 is answered. Stages 2–3 build no recovery request on the gate's open path — until Q9, a host who loses their management link cannot regain it (RO-5, RD-5 stay open).
 
 ### Fixed from the first email
 
