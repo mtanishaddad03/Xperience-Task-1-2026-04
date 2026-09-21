@@ -240,6 +240,7 @@ Only constraints that rule out an option or strongly shape the architecture. The
 | **D10** | **Guests are told when an event is cancelled.** A cancellation notice is recorded for every guest whose invitation was sent, in the same all-or-nothing step as the cancel, and sent through the outbox. *(Step 18.)* | The same reasoning as D3, more strongly: a guest who is not told about a change they did not cause will not act on it — here, hundreds of people travelling to an event that is not happening. | A burst of notices from the one shared sending identity (RD-6). |
 | **D11** | **After Close, no reply can change — including a decline.** *(Step 18.)* | Close is what the brief says it is (F7): the host closes the list to stop it moving before committing to suppliers. | From close onward the count can only be **too high**: a guest who can no longer come must tell the host directly. |
 | **D12** | **Guests without their own email address are outside the system; the host handles them by phone.** *(Step 18.)* | Keeps one guest = one address = one place (N2), which keeps counting and the waitlist simple. | The system's count covers emailed guests only; the host adds the rest by hand — a small part of the original manual work remains. |
+| **D13** | **No email provider for this task (T4).** The drain hands each message to a **development sender** that writes the recipient, the kind and — for invitation and management-link messages — the link to the application console. No real email is sent. *(Before Stage 2.)* | Stages 2–3 can be built and tested end to end without spending a sender reputation (Rollout: "the drain cannot tell a test from a wedding"). The sender sits behind one interface, so a real provider replaces it without touching the drain. | The console now holds working links (see Step 11 → Logs). Every provider-specific behaviour — acceptance, errors, rate limits — is simulated, not observed. |
 
 ### Working assumptions
 
@@ -591,7 +592,7 @@ Every trust decision rests on possession of a link (N1). There is no session and
 | Forwarding (X9) | Undetectable under N1 — accepted gap |
 | Automatic scanners (E6) | Harmless only because opening ≠ submitting |
 | Resources loaded by the guest or host page | The page URL **is** the credential; the pages load no third-party resources |
-| Logs | Today only Hibernate `show-sql` logs, printing statements **without bound values**. Adding request-URL logging would change that. |
+| Logs | Hibernate `show-sql` prints statements **without bound values**. **The development sender (D13) prints every working link to the console by design** — acceptable only because no real guest uses it; it is removed with the choice of a real provider. Adding request-URL logging would add a second leak. |
 
 ### Protected storage — and what it forces
 
