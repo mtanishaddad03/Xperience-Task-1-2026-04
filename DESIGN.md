@@ -41,6 +41,7 @@ This document is written to be challenged. Every decision carries the reasoning 
 | [Scalability and Multi-Tenancy Notes](#scalability-and-multi-tenancy-notes-step-13) | 13 |
 | [Risks and Failure Notes](#risks-and-failure-notes-step-14) | 14 |
 | [Alternatives and Tradeoffs](#alternatives-and-tradeoffs-step-15) | 15 |
+| [API Shape](#api-shape-stage-2) | Stage 2 |
 | [Rollout and Migration Notes](#rollout-and-migration-notes-step-16) | 16 |
 | [Pre-Review Weakness Check](#pre-review-weakness-check-step-18) | 18 |
 
@@ -865,6 +866,62 @@ Only directions a strong senior engineer would put on the table, aimed at the we
 | No capacity editing until Q2 | Shipping an obvious feature | Hosts cannot change capacity at all |
 | Close is final, including declines (D11) | Allowing declines after close | After close, the count can only be too high |
 | Guests without email outside the system (D12) | Host-entered replies | Part of the count stays manual |
+
+---
+
+## API Shape *(Stage 2)*
+
+Approved by the problem owner before Stage 2. Every endpoint is one flow from Step 7; nothing here adds behaviour.
+
+### Links
+
+| | |
+|---|---|
+| **Link URLs** *(fixed from the first email)* | Host: `<frontend origin>/m/<token>` · Guest: `<frontend origin>/i/<token>` |
+| **Token** | 32 bytes from `SecureRandom`, URL-safe base64 without padding (43 characters) |
+| **Carried to the API** | Only as `Authorization: Bearer <token>`. Never in an API path or query string, so no request log can hold it. |
+| **Stored** | `SHA-256(token)` only (KD13), in one row per holder: `management_link` (unique per event) or `guest_link` (unique per guest). Replacing a link updates that one row (INV-A7). Two tables make the kinds structurally non-interchangeable: host endpoints look only in `management_link`, guest endpoints only in `guest_link`. |
+| **Identifiers** | No event or guest id appears in any URL; everything is derived from the link. |
+| **Origin** | The frontend proxies `/api` to the backend, so the browser sees one origin. Both pages send `Referrer-Policy: no-referrer` and load no third-party resources. |
+
+### The single refusal
+
+Every link failure — missing header, malformed, unknown, or the wrong kind — receives exactly:
+
+```
+HTTP 404   Cache-Control: no-store
+{"error":"LINK_INVALID","message":"This link is not valid."}
+```
+
+Every path does the same work — hash the token, one indexed lookup — so the refusal is identical in content and in cost (INV-A4). "Wrong event" cannot arise because no request names an event. Every other error below is returned only after the link has resolved.
+
+### Endpoints
+
+| Flow | Endpoint | Request | Success | Errors |
+|---|---|---|---|---|
+| **U1** *(open path)* | `POST /api/events` | `{title, description, location, startTime, capacity, hostEmail}` — `startTime` an absolute instant (D16); `capacity` null or ≥ 1 | `202 {message}` — no event id, no link (D9) | `400 VALIDATION {fields}` — title, description, location, host email required; start later than the database clock (INV-B9) · management-link cap (D14) |
+| **U5** | `GET /api/host/event` | — | `200 {event, counts, guests, outbox}` — see below | — |
+| **U8** | `POST /api/host/verify` | — | `200 {hostVerified: true}`; idempotent. Opening the page never verifies. | — |
+| **U2** | `POST /api/host/invitations` | `{emails: [...]}` | `200 {invited, alreadyInvited}` | `400 INVALID_ADDRESSES {invalid: [...]}` (whole batch rejected) · `403 HOST_NOT_VERIFIED` · `409 EVENT_LOCKED {reason}` · `429 INVITATION_LIMIT {limit, usedInWindow, requested, message}` (whole batch rejected) |
+| **U10** | `POST /api/host/invitations/resend` | `{email}` | `202 {queued: true}` | `404 GUEST_NOT_FOUND` · `409 RESEND_NOT_ALLOWED` (latest invitation queued or sending) · `403`, `409 EVENT_LOCKED`, `429` as U2 |
+| **U6** | `POST /api/host/close` | — | `200 {status: "CLOSED", changed}` | `409 STATUS_NOT_ALLOWED` (cancelled) |
+| **U6** | `POST /api/host/cancel` | — | `200 {status: "CANCELLED", changed}` | — |
+| **U7** | `GET /api/guest` | — | `200 {event: {title, description, location, startTime, status, repliesOpen, lockedReason}, reply: {state}}` | — |
+| **U3/U4** | `PUT /api/guest/reply` | `{choice: "YES" \| "NO" \| "MAYBE"}` | `200 {state}` | `409 REPLY_LOCKED {reason: CLOSED \| CANCELLED \| STARTED}` |
+
+`GUEST_NOT_FOUND` is safe to return because only the host reaches it, and the host already sees the guest list.
+
+**Host view (U5):**
+- `event`: title, description, location, startTime, capacity, status, hostVerified, repliesOpen, lockedReason
+- `counts`: confirmed, waitlisted, maybe, declined, pending, placesRemaining (null without capacity) — the single definitions of KD12
+- `guests`: email, state (PENDING or a reply state), waitlistPosition (null unless waitlisted), invitation (status of the latest invitation message)
+- `outbox`: queued, sending, failed, paused — the backlog that makes the drain's health visible (O1)
+
+**Guest view (U7):** the minimum until Q6 — own state only; no waitlist position, no totals, nothing about other guests (INV-A5).
+
+### Not exposed
+
+No endpoint for U9 (Q9), capacity editing (Q2), or pausing the drain — the operator has no link, so the pause switch is a database row changed directly. The Access Gate rate limit (W11) remains undesigned and unbuilt.
 
 ---
 
