@@ -664,6 +664,8 @@ There is no queue for ordering state changes. The ordering a queue would provide
 | **Invite** *(U2, U10)* | create guests, skipping existing addresses → queue messages → commit | Sending. **Takes no per-event lock.** |
 | **Send** *(S5, per message)* | mark it *sending* if still queued → re-check it is still true → for invitation and management-link messages, generate the link and store its protected form → hand to provider with a timeout → mark sent / failed / skipped | **Never holds the per-event lock** |
 
+**Claiming, one message at a time** *(before Stage 2)*: the drain selects a batch of due *queued* messages without changing them, then marks **each** message *sending* immediately before its own send — conditionally, only if it is still *queued*. Marking the whole batch at selection would let the last message of a slow batch (batch size × send timeout) sit in *sending* past the reclaim threshold and be sent twice. The batch size, drain interval, send timeout, reclaim threshold and retry delays are configuration values; the reclaim threshold must exceed the send timeout, and the application refuses to start otherwise.
+
 **Why the invite unit takes no lock:** an invite racing a cancel can queue messages for an event cancelled a moment earlier. No invariant is broken — and under INV-B11 those messages are skipped at send time.
 
 **The lock as PostgreSQL takes it** *(Stage 1)*: the per-event lock is a `PESSIMISTIC_WRITE` read of the event row, which Hibernate issues on PostgreSQL as `SELECT … FOR NO KEY UPDATE`, not `FOR UPDATE`. This is sufficient and preferable:
