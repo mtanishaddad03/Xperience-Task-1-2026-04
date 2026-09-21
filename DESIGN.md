@@ -243,7 +243,7 @@ Only constraints that rule out an option or strongly shape the architecture. The
 | **D13** | **No email provider for this task (T4).** The drain hands each message to a **development sender** that writes the recipient, the kind and — for invitation and management-link messages — the link to the application console. No real email is sent. *(Before Stage 2.)* | Stages 2–3 can be built and tested end to end without spending a sender reputation (Rollout: "the drain cannot tell a test from a wedding"). The sender sits behind one interface, so a real provider replaces it without touching the drain. | The console now holds working links (see Step 11 → Logs). Every provider-specific behaviour — acceptance, errors, rate limits — is simulated, not observed. |
 | **D14** | **Per-host invitation limit (Q8): at most 1,000 invitations per verified host address in any rolling 24 hours, across all of that host's events.** A batch that would exceed it is **rejected whole**, with a clear message. *(Before Stage 2.)* | Covers the normal 600-guest event (F15) with room to spare, while limiting a host who opens many events to multiply their allowance (W9). Rejecting whole keeps the host's list either fully invited or not at all — never an arbitrary prefix of it. | A host with more than 1,000 guests must spread invitations over two days. A determined abuser with fresh addresses is still only slowed (W9). |
 | **D15** | **Automatic retry of failed sends (Q10): a failed send is retried up to 3 times, with increasing delay between attempts; after the last retry fails, the message is final *failed*.** *(Before Stage 2.)* | Most provider failures are transient; retrying inside the drain spares the host from resending by hand. A bounded count keeps a permanently bad address from being retried forever. | A message can take several delays to reach final *failed* — the host sees it as still pending until then. An invitation retried after its link was stored gets a new link on each attempt (KD13); only the newest works. |
-### Working assumptions
+| **D16** | **Start-time entry (Q5): the host enters the start time in their browser's time zone; the browser converts it and sends an absolute instant.** The server stores and compares only that instant. *(Before Stage 2.)* | The host means the time where they are, and the browser is the only place that knows that zone. The server never interprets a local time, so G6 and INV-B7 compare like with like. | A host creating an event from another time zone than the venue's enters it in their own zone; the page must make the zone visible. The start time still cannot change after creation (W4). |### Working assumptions
 
 | # | Assumption | If wrong |
 |---|---|---|
@@ -262,7 +262,6 @@ Only constraints that rule out an option or strongly shape the architecture. The
 | # | Question | Blocks |
 |---|---|---|
 | **Q2** | What happens when a host **lowers** capacity below the number confirmed — or **adds** a capacity to an event that had none and already has more confirmed than the new limit? Each answer breaks a different promise: the host's control, a guest's place, or G4. | The capacity-edit path, which does not exist until this is answered. |
-| **Q5** | The start time is stored as an **absolute instant** — the lock rule compares it with the database clock and cannot work otherwise. **Open: how the host's entry is turned into that instant** — which time zone they mean. *Whether it can change after invitations: currently no, only because no edit path exists (W4).* | **The correctness of G6 and INV-B7**, not just its wording. |
 | **Q6** | What may a guest see beyond their own state — queue position, totals, other guests? | The guest view. |
 | **Q9** | A host who has lost their management link has no link to name the event with. **How do they identify which event to recover?** Whatever the answer, a reissue request must not let a stranger invalidate a working host's link. | The reissue flow (U9). |
 
@@ -275,6 +274,7 @@ Kept so the reasoning trail stays visible.
 | **Q1** | Email or WhatsApp for invitations? | **D1** — email |
 | **Q3** | Is a promoted guest told, or do they find out by returning? | **D3** — told, through the outbox |
 | **Q4** | How does a host regain access without an account? | **D9** — reissue to the verified address *(its entry point is Q9)* |
+| **Q5** | Which time zone does the host mean when entering the start time? | **D16** — the browser's; it sends an absolute instant |
 | **Q7** | How is a guest reached whose invitation failed? | **D8** — every message has a visible status; resend creates a new one |
 | **Q8** | What is the per-host invitation limit? | **D14** — 1,000 per verified host address per rolling 24 hours, across events; an exceeding batch is rejected whole |
 | **Q10** | Are failed sends retried automatically? | **D15** — up to 3 retries with increasing delay, then final *failed* |
@@ -299,7 +299,7 @@ State names used below: **Event** Open · Closed · Cancelled. **Reply** *(none 
 
 | Flow | Trigger | Major steps | State changes | Depends on |
 |---|---|---|---|---|
-| **U1** Create event | Host submits details and their email | Validate; start time in the future; create event; queue the management-link message | Event **Open**, host **unverified** | D9, Q5 |
+| **U1** Create event | Host submits details and their email | Validate; start time in the future; create event; queue the management-link message | Event **Open**, host **unverified** | D9, D16 |
 | **U8** Verify host | Host opens the management link **and explicitly confirms** | Resolve link; mark host verified | Host **verified** | D9 — a page load alone never verifies (E6) |
 | **U2** Invite guests | Host submits addresses | Resolve management link; require verified host; **require the event Open and not started**; create each guest with an invitation message, skipping existing addresses | Guests created; messages queued | D5, D8, D9, Q8 |
 | **U3** First reply | Guest submits Yes/No/Maybe | Resolve link; lock check; capacity decision if "Yes" and capacity set; record; show outcome | Pending → Confirmed / Waitlisted / Declined / Maybe | A1, A3 |
@@ -966,7 +966,7 @@ The draft was read end to end, looking only for sections that were vague, assump
 | **W12** | **Pacing and the Q8 limit have no stated basis.** At minimum, the limit must exceed the normal 600-guest event (F15), and the response to a batch over the limit is undefined. | **Partly resolved:** D14 sets the limit (1,000 / 24 h, above 600) and the response (reject whole). Pacing still has no provider basis (D13). |
 | **W15** | **KD13 was unconfirmed** — yet the Link record, S5, INV-A7, INV-B13, RC-9 and two rollback rows rest on it. | **Resolved before Stage 2:** KD13 confirmed by the problem owner. |
 
-Open questions still standing: **Q2, Q5, Q6, Q9.**
+Open questions still standing: **Q2, Q6, Q9.**
 
 ### What a reviewer should push on first
 
