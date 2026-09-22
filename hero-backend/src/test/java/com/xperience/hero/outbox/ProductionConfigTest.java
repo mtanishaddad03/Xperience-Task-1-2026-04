@@ -28,6 +28,22 @@ class ProductionConfigTest {
 	}
 
 	@Test
+	void jdbcAndJpaUseTheSameSchema() throws Exception {
+		// JPA reads hibernate.default_schema; plain JDBC follows the connection's search path. If they differ,
+		// the application starts and then fails on the first plain statement.
+		List<PropertySource<?>> sources = new YamlPropertySourceLoader()
+				.load("application.yml", new ClassPathResource("application.yml"));
+		MutablePropertySources all = new MutablePropertySources();
+		sources.forEach(all::addLast);
+		String url = (String) all.get("application.yml")
+				.getProperty("spring.datasource.url");
+		String jpaSchema = (String) all.get("application.yml")
+				.getProperty("spring.jpa.properties.hibernate.default_schema");
+
+		assertThat(url).contains("currentSchema=" + jpaSchema);
+	}
+
+	@Test
 	void theDrainAndLimitsMatchTheDesign() throws Exception {
 		HeroProperties properties = load();
 

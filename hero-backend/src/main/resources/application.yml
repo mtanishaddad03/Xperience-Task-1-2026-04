@@ -3,7 +3,9 @@ spring:
     name: hero
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/hero
+    # currentSchema must name the same schema as hibernate.default_schema below: JPA uses that setting, while
+    # plain JDBC (the drain's control row, the clock) follows the connection's search path.
+    url: jdbc:postgresql://localhost:5432/hero?currentSchema=hero
     username: postgres
     password: "1234"
     driver-class-name: org.postgresql.Driver
