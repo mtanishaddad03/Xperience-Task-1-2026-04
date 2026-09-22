@@ -667,6 +667,8 @@ There is no queue for ordering state changes. The ordering a queue would provide
 
 **Claiming, one message at a time** *(before Stage 2)*: the drain selects a batch of due *queued* messages without changing them, then marks **each** message *sending* immediately before its own send — conditionally, only if it is still *queued*. Marking the whole batch at selection would let the last message of a slow batch (batch size × send timeout) sit in *sending* past the reclaim threshold and be sent twice. The batch size, drain interval, send timeout, reclaim threshold and retry delays are configuration values; the reclaim threshold must exceed the send timeout, and the application refuses to start otherwise.
 
+**Reclaim never resurrects an exhausted message** *(before Stage 2)*: a message reclaimed from *sending* whose attempts already reach the maximum becomes final *failed*, not *queued* — otherwise a crash during its last attempt would hand it an extra one, and a message that crashes the drain would be retried for ever. **Sends run on a fixed-size pool** so that abandoned sends cannot accumulate when the provider hangs: a hung send occupies one of a bounded number of threads, and the drain is limited by the pool rather than by the provider.
+
 **Why the invite unit takes no lock:** an invite racing a cancel can queue messages for an event cancelled a moment earlier. No invariant is broken — and under INV-B11 those messages are skipped at send time.
 
 **The lock as PostgreSQL takes it** *(Stage 1)*: the per-event lock is a `PESSIMISTIC_WRITE` read of the event row, which Hibernate issues on PostgreSQL as `SELECT … FOR NO KEY UPDATE`, not `FOR UPDATE`. This is sufficient and preferable:
@@ -866,6 +868,7 @@ Only directions a strong senior engineer would put on the table, aimed at the we
 | No capacity editing until Q2 | Shipping an obvious feature | Hosts cannot change capacity at all |
 | Close is final, including declines (D11) | Allowing declines after close | After close, the count can only be too high |
 | Guests without email outside the system (D12) | Host-entered replies | Part of the count stays manual |
+| Storing a link before handoff | Storing it after a successful handoff | **A failed resend leaves the guest with no working link** — the replacement was stored, the message never arrived. Accepted because the alternative fails silently: a delivered link that was never stored refuses the guest while the host sees *sent*. This way the host sees *failed* and can resend. *(Confirmed before Stage 2.)* |
 
 ---
 
