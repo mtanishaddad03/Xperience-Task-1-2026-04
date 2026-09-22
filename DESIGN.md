@@ -1,6 +1,14 @@
 # Event RSVP Manager — Design File
 
-**Status:** first complete design draft. Implementation not started.
+**Status:** first complete design draft — **implemented through Stage 4** of the rollout below (scaffold cleanup, Reply Engine, Event Management with the Outbox Drain, both surfaces, and the notices). Every stage's exit conditions are automated tests: **125 backend tests** against real PostgreSQL in a separate schema, and **30 frontend tests**. See *Running this implementation* in `README.md`.
+
+**Deliberately not built**, because the design does not decide them:
+- **Capacity editing (Q2)** — no endpoint and no page; changing a capacity below the confirmed count would break either INV-B1 or a guest's place.
+- **Whatever a guest may see beyond their own state (Q6)** — the guest page shows the event and that guest's own standing, and nothing else.
+- **Management-link recovery (U9, Q9)** — a host who loses their link cannot regain it, so **RD-5 and RO-5 stay open**.
+- **The Access Gate rate limit (W11)** — named three times in this document and specified nowhere, so it is not implemented.
+
+**No email provider is chosen (T4).** What runs is the development sender of **D13**: it writes each message, and the link for invitation and management-link messages, to the application console, and sends nothing.
 **Method:** built by working through the steps of *Building a Design File from Scratch with an AI Partner*, in order, with Claude as the AI partner. Each section heading carries the step it came from.
 **Pre-review weakness check (Step 18):** performed — see the final section. What remains weak is listed there, not hidden.
 
