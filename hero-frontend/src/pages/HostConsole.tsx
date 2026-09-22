@@ -86,6 +86,8 @@ export function HostConsole({ token }: { token: string }) {
   }
 
   const { event, counts, guests, outbox } = view
+  // Nothing can be invited, resent or decided on a cancelled event, so none of it is offered.
+  const cancelled = event.status === 'CANCELLED'
 
   const invite = () => {
     const emails = addresses
@@ -114,7 +116,16 @@ export function HostConsole({ token }: { token: string }) {
           {formatStartTime(event.startTime)} · {event.location}
         </p>
         {!event.repliesOpen && (
-          <p className="mt-3 rounded-md bg-stone-100 p-3 text-stone-800">{lockedMessage(event.lockedReason)}</p>
+          <div className="mt-3 rounded-md bg-stone-100 p-3 text-stone-800">
+            <p>{lockedMessage(event.lockedReason)}</p>
+            {cancelled && (
+              // D10: every guest whose invitation was sent is told, through the outbox below.
+              <p className="mt-1 text-sm text-stone-700">
+                Guests who were sent an invitation are being told. You can see how many are still to go under
+                Messages.
+              </p>
+            )}
+          </div>
         )}
       </header>
 
@@ -146,6 +157,7 @@ export function HostConsole({ token }: { token: string }) {
         )}
       </section>
 
+      {!cancelled && (
       <section className="mt-8">
         <h2 className="font-medium text-stone-900">Invite guests</h2>
         <textarea
@@ -170,6 +182,7 @@ export function HostConsole({ token }: { token: string }) {
           </div>
         )}
       </section>
+      )}
 
       <section className="mt-8">
         <h2 className="font-medium text-stone-900">Guests</h2>
@@ -192,7 +205,7 @@ export function HostConsole({ token }: { token: string }) {
                 </td>
                 <td className="py-2">{guest.invitation ? INVITATION_LABELS[guest.invitation] : ''}</td>
                 <td className="py-2">
-                  {(guest.invitation === 'SENT' || guest.invitation === 'FAILED') && (
+                  {!cancelled && (guest.invitation === 'SENT' || guest.invitation === 'FAILED') && (
                     <Confirm
                       label="Resend"
                       consequence={
@@ -237,7 +250,7 @@ export function HostConsole({ token }: { token: string }) {
             onConfirm={() => void act(() => api.close(token), 'The event is closed to further replies.')}
           />
         )}
-        {event.status !== 'CANCELLED' && (
+        {!cancelled && (
           <Confirm
             label="Cancel the event"
             tone="grave"

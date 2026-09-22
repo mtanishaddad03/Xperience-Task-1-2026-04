@@ -84,6 +84,16 @@ export function GuestPage({ token }: { token: string }) {
         </div>
       </dl>
 
+      {event.status === 'CANCELLED' ? (
+        // A cancelled event is the whole message: the guest's own standing no longer decides anything (D10).
+        <section className="mt-6 rounded-lg border border-stone-300 bg-stone-50 p-4">
+          <p className="text-lg font-medium text-stone-900">This event has been cancelled.</p>
+          <p className="mt-2 text-stone-700">
+            There is nothing you need to do. The host cancelled it, so it is not going ahead.
+          </p>
+          <p className="mt-3 text-sm text-stone-500">{stateInWords(view.reply.state)}</p>
+        </section>
+      ) : (
       <section className="mt-6 rounded-lg border border-stone-200 p-4">
         <p className="text-lg text-stone-900">{stateInWords(view.reply.state)}</p>
 
@@ -111,6 +121,7 @@ export function GuestPage({ token }: { token: string }) {
 
         {problem && <p className="mt-3 text-sm text-red-700">{problem}</p>}
       </section>
+      )}
     </main>
   )
 }

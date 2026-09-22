@@ -180,6 +180,64 @@ describe('the host console', () => {
   })
 })
 
+describe('a cancelled event', () => {
+  it('tells the guest first, and leaves nothing to do', async () => {
+    stubFetch(() => ({
+      body: {
+        event: { ...guestViewFixture.event, status: 'CANCELLED', repliesOpen: false, lockedReason: 'CANCELLED' },
+        reply: { state: 'CONFIRMED' },
+      },
+    }))
+
+    const { container } = renderAt(`/i/${GUEST_TOKEN}`)
+
+    const cancelled = await screen.findByText('This event has been cancelled.')
+    expect(cancelled).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(container.textContent).toMatch(/nothing you need to do/i)
+    // The cancellation comes before their own standing, which no longer means anything.
+    const text = container.textContent ?? ''
+    expect(text.indexOf('This event has been cancelled.')).toBeLessThan(text.indexOf('You have a place.'))
+  })
+
+  it('tells the host that the guests are being told', async () => {
+    stubFetch(() => ({
+      body: {
+        ...hostViewFixture,
+        event: { ...hostViewFixture.event, status: 'CANCELLED', repliesOpen: false, lockedReason: 'CANCELLED' },
+        outbox: { queued: 2, sending: 0, failed: 0, paused: false },
+      },
+    }))
+
+    const { container } = renderAt(`/m/${HOST_TOKEN}`)
+    await screen.findByText('Party')
+
+    expect(screen.getByText(/This event has been cancelled\./)).toBeInTheDocument()
+    expect(container.textContent).toMatch(/guests who were sent an invitation are being told/i)
+    // Nothing is left to decide: no closing, no cancelling again, no inviting.
+    expect(screen.queryByRole('button', { name: 'Close the event' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel the event' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Send invitations' })).not.toBeInTheDocument()
+    // The guest list and the backlog are still there: the host can see the notices going out.
+    expect(screen.getByText('first@x.com')).toBeInTheDocument()
+    expect(container.textContent).toMatch(/2 waiting to be sent/)
+  })
+
+  it('still offers the host a resend of nothing at all', async () => {
+    stubFetch(() => ({
+      body: {
+        ...hostViewFixture,
+        event: { ...hostViewFixture.event, status: 'CANCELLED', repliesOpen: false, lockedReason: 'CANCELLED' },
+      },
+    }))
+    renderAt(`/m/${HOST_TOKEN}`)
+    await screen.findByText('Party')
+
+    // A resend would only be skipped at send time, so it is not offered either.
+    expect(screen.queryByRole('button', { name: 'Resend' })).not.toBeInTheDocument()
+  })
+})
+
 describe('what the pages never do', () => {
   it('renders host-written text as text, never as markup', async () => {
     const attack = '<img src=x onerror="alert(1)">'
