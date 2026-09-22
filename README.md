@@ -112,6 +112,67 @@ This opens two terminal windows:
 
 ---
 
+## Running this implementation
+
+For reviewers. **Read `DESIGN.md` first** — it is the source of truth, and its header says what is implemented and what is deliberately not.
+
+### Prerequisites
+
+Java 17+, Node.js 20+, and PostgreSQL running on `localhost:5432` with the password `1234` for `postgres`. Maven comes with the repository as `mvnw.cmd`.
+
+### 1. Create the database and schema
+
+In pgAdmin, or with `psql -U postgres`:
+
+```sql
+CREATE DATABASE hero;
+```
+
+Then, connected to `hero`:
+
+```sql
+CREATE SCHEMA hero;
+```
+
+Tables are created by the application on first start (`ddl-auto: update`); there is no migration tool.
+
+### 2. Start both sides
+
+```powershell
+.\start.ps1
+```
+
+Backend on http://localhost:8280, frontend on http://localhost:5171. The frontend passes `/api` through to the backend, so the browser only ever talks to port 5171.
+
+### 3. Use it
+
+1. Open **http://localhost:5171/** — the create-event page. It is the only page that needs no link.
+2. **No email is ever sent.** No provider is chosen, so a development sender writes every message to the **backend console**, including the links:
+   ```
+   [DEV MAIL] to=host@example.com kind=MANAGEMENT_LINK event="..." link=http://localhost:5171/m/<token>
+   ```
+   Copy that link from the console and open it: that is the Host Console.
+3. On the Host Console, confirm your email address, then invite guests. Each invitation appears in the console the same way, as `http://localhost:5171/i/<token>` — the Guest Page for that one guest.
+4. Messages leave the outbox a few at a time, every couple of seconds, so a link appears in the console a moment after the action.
+
+Links are stored only as a hash, so a link that scrolls out of the console is gone: resend the invitation to get a new one, which replaces it.
+
+### Running the tests
+
+```powershell
+cd hero-backend; .\mvnw.cmd test
+```
+
+125 tests, including the concurrency and drain cases. They need the same PostgreSQL instance and create their own `hero_test` schema; they never touch `hero`, and send no email.
+
+```powershell
+cd hero-frontend; npm install; npm test
+```
+
+30 tests for the two pages. `npm run build` type-checks and builds; `npm run lint` runs ESLint.
+
+---
+
 ## Your Task
 
 ### Phase 1 — Design (mandatory)
