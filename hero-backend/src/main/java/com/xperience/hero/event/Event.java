@@ -77,4 +77,9 @@ public class Event {
 	void setStatus(EventStatus status) {
 		this.status = status.name();
 	}
+
+	/** U8 (D9): only an explicit confirmation from the management link reaches this. */
+	void verifyHost() {
+		this.hostVerified = true;
+	}
 }

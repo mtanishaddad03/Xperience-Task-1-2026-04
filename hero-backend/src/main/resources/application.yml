@@ -18,5 +18,25 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+hero:
+  # Where the links in messages point: the page URL is the credential, so this is the frontend, not the API.
+  public-base-url: http://localhost:5171
+
+  drain:
+    enabled: true
+    interval: 2s
+    batch-size: 10
+    send-timeout: 10s
+    # Must be longer than send-timeout, or a message still being sent would be reclaimed and sent twice.
+    reclaim-after: 1m
+    # D15: three retries after the first attempt, then final failed.
+    retry-delays: 1m,5m,15m
+    send-threads: 4
+
+  limits:
+    # D14, counted per address over a rolling 24 hours.
+    invitations-per-host-per-day: 1000
+    management-links-per-address-per-day: 5
+
 server:
   port: 8280

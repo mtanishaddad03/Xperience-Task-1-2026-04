@@ -94,8 +94,9 @@ public abstract class IntegrationTest {
 
 	/** Inserts an invitation message directly, in a given status — the drain that normally writes status is Stage 2–3. */
 	protected void insertInvitation(long eventId, long guestId, String status) {
-		jdbc.update("insert into hero_test.outbound_message (event_id, guest_id, kind, status, created_at) "
-				+ "values (?, ?, 'INVITATION', ?, clock_timestamp())", eventId, guestId, status);
+		jdbc.update("insert into hero_test.outbound_message "
+				+ "(event_id, guest_id, kind, status, created_at, attempts, next_attempt_at) "
+				+ "values (?, ?, 'INVITATION', ?, clock_timestamp(), 1, clock_timestamp())", eventId, guestId, status);
 	}
 
 	/** Number of sessions currently blocked waiting for a lock. */

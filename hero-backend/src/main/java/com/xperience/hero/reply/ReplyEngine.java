@@ -3,8 +3,8 @@ package com.xperience.hero.reply;
 import com.xperience.hero.common.DatabaseClock;
 import com.xperience.hero.common.NotFoundException;
 import com.xperience.hero.event.Event;
+import com.xperience.hero.event.EventLock;
 import com.xperience.hero.event.EventRepository;
-import com.xperience.hero.event.EventStatus;
 import com.xperience.hero.guest.Guest;
 import com.xperience.hero.guest.GuestRepository;
 import com.xperience.hero.outbox.MessageKind;
@@ -73,18 +73,10 @@ public class ReplyEngine {
 		return ReplyResult.accepted(reply, now);
 	}
 
-	/** Locked = not Open, or the database clock has reached the start time (S3, INV-B7). A rule, not a state (KD4). */
+	/** The lock check (S3, INV-B7), using the one definition of "locked" shared with invitations and both views. */
 	private static ReplyRefusal lockCheck(Event event, Instant now) {
-		if (event.getStatus() == EventStatus.CANCELLED) {
-			return ReplyRefusal.CANCELLED;
-		}
-		if (event.getStatus() == EventStatus.CLOSED) {
-			return ReplyRefusal.CLOSED;
-		}
-		if (!now.isBefore(event.getStartTime())) {
-			return ReplyRefusal.STARTED;
-		}
-		return null;
+		EventLock.LockReason reason = EventLock.reasonFor(event, now);
+		return reason == null ? null : ReplyRefusal.valueOf(reason.name());
 	}
 
 	/**

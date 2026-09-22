@@ -50,6 +50,24 @@ public class OutboundMessage {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
+	/** Attempts so far, counted when the drain claims the message (D15). */
+	@Column(nullable = false)
+	private int attempts;
+
+	/** When the drain may next attempt it: now for a new message, later after a failed attempt (D15). */
+	@Column(name = "next_attempt_at", nullable = false)
+	private Instant nextAttemptAt;
+
+	/** When this attempt was claimed; used to reclaim a message the drain crashed on. */
+	@Column(name = "claimed_at")
+	private Instant claimedAt;
+
+	@Column(name = "finished_at")
+	private Instant finishedAt;
+
+	@Column(name = "last_error", columnDefinition = "text")
+	private String lastError;
+
 	public static OutboundMessage queued(MessageKind kind, Event event, Guest guest, Instant createdAt) {
 		OutboundMessage m = new OutboundMessage();
 		m.kind = kind.name();
@@ -57,6 +75,8 @@ public class OutboundMessage {
 		m.guest = guest;
 		m.status = MessageStatus.QUEUED.name();
 		m.createdAt = createdAt;
+		m.nextAttemptAt = createdAt;
+		m.attempts = 0;
 		return m;
 	}
 

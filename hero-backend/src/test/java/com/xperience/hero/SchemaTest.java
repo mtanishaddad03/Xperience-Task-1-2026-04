@@ -60,12 +60,17 @@ class SchemaTest extends IntegrationTest {
 	}
 
 	@Test
-	void timesAreStoredAsAbsoluteInstants() {
-		List<String> types = jdbc.queryForList("""
-				select data_type from information_schema.columns
-				where table_schema = 'hero_test'
-				  and column_name in ('start_time', 'entered_state_at', 'created_at')
+	void everyStoredTimeIsAnAbsoluteInstant() {
+		// A local timestamp could not be compared with the database clock, which is what the lock rule does.
+		List<String> localColumns = jdbc.queryForList("""
+				select table_name || '.' || column_name from information_schema.columns
+				where table_schema = 'hero_test' and data_type like 'timestamp%'
+				  and data_type <> 'timestamp with time zone'
 				""", String.class);
-		assertThat(types).hasSize(3).allMatch(t -> t.equals("timestamp with time zone"));
+		assertThat(localColumns).isEmpty();
+		assertThat(jdbc.queryForObject("""
+				select count(*) from information_schema.columns
+				where table_schema = 'hero_test' and data_type = 'timestamp with time zone'
+				""", Integer.class)).isGreaterThanOrEqualTo(3);
 	}
 }

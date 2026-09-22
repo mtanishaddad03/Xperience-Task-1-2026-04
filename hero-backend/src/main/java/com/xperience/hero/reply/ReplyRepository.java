@@ -12,6 +12,9 @@ public interface ReplyRepository extends JpaRepository<Reply, Long> {
 	@Query("select r from Reply r where r.guest.id = :guestId")
 	Optional<Reply> findByGuestId(@Param("guestId") long guestId);
 
+	@Query("select r from Reply r where r.guest.event.id = :eventId")
+	List<Reply> findByEventId(@Param("eventId") long eventId);
+
 	/** The one definition of a count per state (KD5, KD12) — used by the capacity decision and the host view. */
 	default long countInState(long eventId, ReplyState state) {
 		return countInState(eventId, state.name());

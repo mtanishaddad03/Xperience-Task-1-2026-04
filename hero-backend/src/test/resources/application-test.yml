@@ -14,3 +14,18 @@ spring:
         default_schema: hero_test
         hbm2ddl:
           create_namespaces: true
+
+hero:
+  public-base-url: http://localhost:5171
+  drain:
+    # Tests call the drain directly, so its pass is deterministic.
+    enabled: false
+    interval: 1s
+    batch-size: 10
+    send-timeout: 300ms
+    reclaim-after: 1s
+    retry-delays: 100ms,200ms,300ms
+    send-threads: 4
+  limits:
+    invitations-per-host-per-day: 1000
+    management-links-per-address-per-day: 5
