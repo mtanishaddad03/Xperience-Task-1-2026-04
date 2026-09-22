@@ -943,6 +943,8 @@ A greenfield feature on an empty scaffold: no previous version and no data to mi
 - Replies submitted during a cancel → none recorded after it (X4).
 - A waitlisted guest repeating "Yes" → same position (INV-B6).
 
+**Where the user interface ships** *(recorded before Stage 2 — the sequence below omitted it)*: the two surfaces (KD7) are built inside the stages that give them something to show, each as its own commit after that stage's backend passes its exit conditions. **Host Console and Guest Page ship inside Stages 2–3**, and neither stage counts as released without them; Stage 4 extends them with what the notices change (a cancelled event's pages). Stage 1 has no interface by design.
+
 **Stages 2 and 3 — Event Management and the Outbox Drain, released together.** They cannot be released separately: under D9 a host receives their management link *only* through the drain.
 ⚠️ **Gate: not released until the Q8 limit is chosen.** Otherwise the first release is an open mail relay. *Chosen before Stage 2: D14.* *Exits when:*
 - `Dana@x.com` then `dana@x.com` → one guest (D5).
